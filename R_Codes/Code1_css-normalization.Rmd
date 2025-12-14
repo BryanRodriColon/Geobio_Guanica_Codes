@@ -1,0 +1,215 @@
+---
+title: "Code 1: css-normalization for 16S data"
+author: "Bryan J. Rodriguez-Colon"
+date: "Last udpated: 2025-09-10"
+output: html_document
+---
+
+
+***Disclaimer: This code was designed by Bryan Rodriguez-Colon with the help of chatGPT-4o & chatGPT-5.***
+
+This R Markdown performs **cumulative sum scaling (CSS) normalization** on 16S amplicon sequencing count data using the `metagenomeSeq` package. Input is a **BIOM file** with counts and taxonomy. The script includes the following steps:
+
+1. Load the BIOM file into an `MRexperiment` object.
+2. Filter out non-Bacteria/Archaea sequences.
+3. Remove samples with zero counts to avoid normalization errors.
+4. Apply CSS normalization.
+5. Reintroduce empty samples as zero-filled columns for consistency.
+6. Save the normalized data back as a BIOM file for downstream use.
+
+CSS provides a principled alternative to rarefaction for normalizing sparse amplicon counts (Paulson et al., 2013).
+
+
+
+
+```{r setup, include=T}
+#Set up.
+knitr::opts_chunk$set(echo = TRUE)
+
+#Working Directory
+setwd("~/OneDrive - University of Kansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/R-coding/SciRep")
+
+#Clean Environment
+rm(list = ls())
+
+```
+
+
+```{r Load packages, include=T, message=F}
+
+# Load necessary packages for normalization and data handling
+library(metagenomeSeq)  # For CSS normalization and MRexperiment objects
+library(biomformat)     # For reading/writing BIOM files
+library(Biobase)         # Required dependency for metagenomeSeq (for AnnotatedDataFrame)
+library(stringr)         # For string manipulation (e.g., trimming taxonomy strings)
+
+#conflicts(detail = TRUE)
+
+```
+
+# Load the BIOM file
+
+Load the BIOM file as an `MRexperiment` object (change depending on your biom file to be used for downstream applications)
+
+```{r Load biom and convert to MRexperiment, include=T, echo=T}
+
+mr_exp <- loadBiom("InputData/biom_files/050525_feature_table_w_taxonomy.biom") #Change file depending on the dataset. 
+
+```
+
+# Cleaning dataset prior to normalization
+
+## Filtering Non-Prokaryote
+This step keeps only features classified as Bacteria or Archaea to prevent eukaryotic/unknown reads (e.g., chloroplast/mitochondria) from biasing CSS normalization. It uses the featureData field `X1` (QIIME-style d__ prefixes) and retains rows matching `d__Bacteria` or `d__Archaea`. If your BIOM uses a different field or prefixes, update the column name/values accordingly. The chunk prints the domains that remain after filtering and updates `mr_exp` in place.
+
+### V1 of the Non-Prokaryote filtering code
+
+```{r Filtering non Bacteria or non Archaea, echo=T, include=T}
+
+
+# Filter out features not classified as Bacteria or Archaea
+# Occasionally, some Eukaryotic or unassigned sequences may be misclassified
+
+if ("X1" %in% colnames(mr_exp@featureData@data)) {
+  domain_values <- mr_exp@featureData@data$X1
+  valid_rows <- domain_values %in% c("d__Archaea", "d__Bacteria")
+  mr_exp <- mr_exp[valid_rows, ]
+  cat("Remaining domains:", unique(mr_exp@featureData@data$X1), "\n")
+}
+
+
+```
+
+### V2 of the filtering code
+
+The following code box is a new version of the non-Bacteria taxa filtering for a more general dataset (i.e., in our case, `X1` was used. But this is not always the case). Since is a new code portion, I need to test if this works as the one above before choosing the version. 
+
+
+```{r Filtering non Bacteria or non Archaea V2 (DO NOT USE YET), echo=T, include=T}
+
+#Robust domain filtering (works whether domain is in `X1`, `kingdom`, or the `taxonomy` string)
+fdat <- fData(mr_exp)
+
+# Try common fields first; fall back to parsing a taxonomy string column if present
+domain_col <- intersect(c("X1","kingdom","Domain","domain"), colnames(fdat))
+if (length(domain_col) == 1) {
+  dom_vals <- fdat[[domain_col]]
+} else if ("taxonomy" %in% colnames(fdat)) {
+  # e.g., "k__Bacteria; p__Firmicutes; ..."
+  dom_vals <- sub(";.*$", "", fdat$taxonomy)         # keep first rank
+} else {
+  dom_vals <- NA_character_
+}
+
+keep <- rep(TRUE, nrow(fdat))
+if (!all(is.na(dom_vals))) {
+  keep <- grepl("(d__|k__)?Archaea|Bacteria", dom_vals, ignore.case = TRUE)
+}
+
+mr_exp <- mr_exp[keep, ]
+cat("Kept features (Bacteria/Archaea filter):", sum(keep), "of", length(keep), "\n")
+
+
+```
+
+
+## Identify and temporarily drop zero-count samples.
+
+CSS requires each sample to have a positive library size; columns with total counts = 0 cause failures/NaNs in normalization. Here we **(1)** capture the original sample order and phenodata, **(2)** compute per-sample sums, **(3)** list empty vs. non-empty samples, and **(4)** subset to `mr_exp_nonempty` for CSS. 
+
+The console output reports how many samples are kept/dropped. Empty samples are only removed temporarily, as we’ll reinsert them later as zero-filled columns to preserve the original sample list/order for downstream merges.
+
+```{r cleaning data before normalization, echo = T, include=T}
+
+# Identify and remove empty samples (total count = 0)
+# This is necessary before performing CSS normalization
+
+orig_samples <- colnames(MRcounts(mr_exp))
+orig_pheno <- pData(mr_exp)
+
+counts <- MRcounts(mr_exp)
+sample_sums <- colSums(counts)
+empty_samples <- names(sample_sums)[sample_sums == 0]
+non_empty_samples <- names(sample_sums)[sample_sums > 0]
+
+cat("Total samples:", length(orig_samples), "\n")
+cat("Non-empty samples:", length(non_empty_samples), "\n")
+cat("Empty samples:", length(empty_samples), "\n")
+
+mr_exp_nonempty <- mr_exp[, non_empty_samples]
+
+```
+
+# CSS normalization
+
+CSS scales each sample by the cumulative sum of counts up to a chosen percentile p, reducing library-size effects in sparse data. Although `cumNormStat()` can estimate a data-driven p, here we fix p = 0.5 (median) to ensure reproducibility across runs. We normalize with `cumNorm()` and then extract the CSS-normalized counts via `MRcounts(..., norm = TRUE, log = FALSE)`. The console message confirms the percentile used. 
+
+If you prefer automatic selection, uncomment `cumNormStat()` and pass its result to `cumNorm()`.
+
+```{r CSS normalization, echo=T, include=T}
+#NORMALIZATION
+#p_est <- cumNormStat(mr_exp_nonempty) #This is the recommended, but will do manual p instead. 
+
+manual_p <- 0.5 #normalization percentile
+mr_exp_norm <- cumNorm(mr_exp_nonempty, p = manual_p)
+norm_counts <- MRcounts(mr_exp_norm, norm = TRUE, log = FALSE)
+
+cat("CSS normalization completed using manual p =", manual_p, "\n")
+
+```
+
+# Prepare dataset to save
+
+## Revert old biom configuration
+
+For stable downstream joins/BIOM round-trips, we add back the samples that were temporarily dropped for CSS because they had zero reads. 
+
+This chunk: 
+
+**(1)** creates zero-filled columns for `empty_samples`, 
+
+**(2)** binds them to the normalized matrix, and 
+
+**(3)** reorders columns to exactly match `orig_samples`. 
+
+The resulting `full_norm_counts` thus contains CSS-normalized counts for non-empty samples and zeros for the previously empty ones. Keep in mind: analyses that require positive library sizes should still exclude all-zero samples at analysis time. A dimension printout is emitted for a quick sanity check.
+
+```{r Revert old biom configuration, echo=T, include=T}
+# Reinsert empty samples as zero-filled columns
+# This step ensures consistency with the original sample order and count structure
+
+if(length(empty_samples) > 0) {
+  zeros_mat <- matrix(0, nrow = nrow(norm_counts), ncol = length(empty_samples),
+                      dimnames = list(rownames(norm_counts), empty_samples))
+  full_norm_counts <- cbind(norm_counts, zeros_mat)
+  full_norm_counts <- full_norm_counts[, orig_samples, drop = FALSE]
+} else {
+  full_norm_counts <- norm_counts
+}
+cat("Normalized count matrix dimensions:", dim(full_norm_counts), "\n")
+
+
+```
+
+## Save normalized biom
+
+```{r Save normalized biom, echo=T, include=T}
+
+# Save the normalized count matrix as a new BIOM file
+# This includes all samples (even those originally empty) and retains taxonomy
+
+mr_exp_full <- newMRexperiment(full_norm_counts,
+                               phenoData = AnnotatedDataFrame(orig_pheno),
+                               featureData = AnnotatedDataFrame(fData(mr_exp)))
+
+new_biom <- MRexperiment2biom(mr_exp_full, norm = FALSE)
+# Note: counts in mr_exp_full are already CSS-normalized; norm=FALSE was set above so no *additional* normalization is applied during export.
+
+#Rename the biom file as you pleased.
+write_biom(new_biom, biom_file = "InputData/biom_files/050525_feature_table-css-norm_w_taxonomy.biom")
+
+cat("CSS normalization complete. File saved with", ncol(MRcounts(mr_exp_full)), "samples.\n")
+cat("The biom file is now ready for downstream use.")
+
+```
+

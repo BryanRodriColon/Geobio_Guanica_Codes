@@ -1,0 +1,1429 @@
+---
+title: "Code 4: 16S_analysis_Plotting"
+author: "Bryan Rodriguez-Colon and Yasawantha Hiripitiyage"
+date: "Last updated: 2025-09-16"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+***Disclaimer: This R Markdown script was originally created by Yasawantha Hiripitiyage and has been adapted to for new data by Bryan Rodriguez Colon with some use of AI (chatGPT-4o & chatGPT-5).***
+
+# Overview
+
+This document generates the stacked bar plots of 16S rRNA community composition used in the Scientific Reports manuscript. It visualizes relative abundance across ranks (Domain → Genus) and groupings (primarily `Sample_Layer`) for (i) All Prokaryotes, (ii) Bacteria, and (iii) Archaea.
+
+**Upstream prerequisites (from Codes 1–3):**
+
+• **Code 1 (CSS normalization):** BIOM table normalized with CSS; empty samples handled; taxonomy retained.
+
+• **Code 2 (pre-processing after CSS):** BIOMs imported to phyloseq, SILVA-style taxonomies parsed to standard ranks, metadata and tree loaded, merged phyloseq objects created.
+
+• **Code 3 (melt + cleanup):** Replicates collapsed at Sample_Layer, melted long tables created with per-sample relative abundances (RelAbund, in percent), and taxonomy labels cleaned.
+
+**Inputs:**
+`OutputData/RData/PE_SciRep_Arch_Bac_merged_rel_melt_SLayer.RDS` containing: `Arch_Bac_merged_rel_melt_SLayer` (All Prokaryotes) `Arch_merged_rel_melt_SLayer` (Archaea) `Bac_merged_rel_melt_SLayer` (Bacteria)
+
+Each table includes `Sample_Layer`, taxonomic ranks (`Domain`, `Phylum`, `Class`, `Order`, `Family`, `Genus`), and `RelAbund` (percent).
+
+# What this script does:
+
+**1) Summarization for plotting. Uses `summarize_taxa()` to:** Aggregate by `Sample_Layer` and the chosen rank, keep a union of top-N taxa across samples, pool the remainder (and values below threshold) as “Other”,and return rank-ordered data frames for plotting.
+
+**2) Color mapping. Builds reproducible, named palettes:**
+`generate_bac_palette()` (Set1) for All Prokaryotes + Bacteria, `generate_arch_palette()` (Set2) for Archaea, Forces “Other” = black to standardize pooled categories.
+
+**3) Sample ordering:** Fixes display order with `sample_order\_\*` vectors and uses `coord_flip()` + `rev(...)` to show depth-style orientation.
+
+**4)Plotting:** Produces stacked bars at `Domain` / `Phylum` / `Class` / `Order` / `Family` / `Genus` for All, Bacteria, and Archaea.
+
+**5) Exports:** Saves interactive HTML (Plotly), editable SVG, and publication TIFF (600 dpi) under `plots/`.
+
+# Key parameters to tune
+
+• `top_n` and threshold in `summarize_taxa()` (balance detail vs. legend size). Note: threshold assumes `RelAbund` in percent. If your upstream `RelAbund` is in [0,1], set threshold accordingly and adjust axis labels.
+
+• `sample_col` (default: "`Sample_Layer`"). Switch to "`Sample_name`" or "`Sample_Type`" for alternative summaries.
+
+• Palette seeds (keep constant for color stability across figures).
+
+# Assumptions & conventions
+
+• `RelAbund` is per-sample relative abundance (%); y-axes should read “Relative Abundance (%)” for consistency.
+
+• Taxonomy ranks are already cleaned (SILVA prefixes removed; generic labels resolved upstream).
+
+• Replicates were collapsed to `Sample_Layer` in Code 3; the ordering vectors here reflect figure layout (PO → JB → PS; shallow → deep). 
+
+• “Other” appears as a single pooled category at the end of the legend.
+
+# Outputs
+
+• Interactive: `plots/*_summary_plot.html` (per rank/domain).
+
+• Vector: `plots/*_summary_plot.svg` (for Illustrator/Inkscape). 
+
+• Raster: `plots/*_summary_plot.tiff` (13×5 in, 600 dpi, LZW).
+
+```{r setup, include=T}
+# Prepare script
+knitr::opts_chunk$set(echo = TRUE)
+
+setwd("~/OneDrive - University of Kansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/R-coding/SciRep")
+rm(list = ls())
+
+
+```
+
+# Loading Packages
+
+```{r Loading packages, message=F, include=T}
+library(plyr) # Legacy split-apply-combine (e.g., ddply). If unused, drop to avoid dplyr conflicts.
+library(ggplot2) # Core plotting for stacked bars and themes.
+library(phyloseq) # Microbiome objects + tools (merge_samples, psmelt, read_tree).
+library(plotly) # ggplotly() interactivity for HTML exports.
+library(RColorBrewer) # Brewer palettes; base for generate_*_palette().
+library(gridExtra) # Arrange multiple plots on a page (grid.arrange). Optional here.
+library(forcats) # Factor ordering/recoding (helpful for Sample_Layer order). Optional here.
+library(tibble) # Modern data frames (tibbles). Lightweight helper.
+library(colorspace) # Advanced palette manipulation/conversion. Optional here.
+library(svglite) # SVG device; required for ggsave(..., device = "svg").
+library(dplyr) # Core data wrangling (group_by, summarize, mutate, across).
+library(htmlwidgets) # saveWidget() for interactive HTML outputs.
+```
+
+Stop data displayed in scientific notation
+
+```{r stop scipen}
+options(scipen = 999)
+```
+
+# Functions
+
+## Functions for color palettes
+
+### `generate_bac_palette()`
+
+**Purpose.** Build a reproducible, named color vector for Bacteria/All-prokaryote taxa using **RColorBrewer::Set1.** If `"Other"` is present, it is always colored black to standardize pooled categories.
+
+**Inputs.** `taxa_list` = character vector of taxa labels (factor levels are fine); seed controls reproducibility.
+
+**Output.** Named character vector of hex colors, one per taxon in taxa_list. Names match taxa; `"Other" → #000000.`
+
+*Notes: Colors depend on the order of `taxa_list.` If you need stability across runs/machines, pass a consistently ordered vector (e.g., `levels(df$Phylum)`).*
+
+```{r Color Palette Function for All prokaryiotes (Set1)}
+
+# Function to generate a Prokarya color palette with "Other" as black
+generate_bac_palette <- function(taxa_list, seed = 123) {
+  
+  # Ensure reproducibility
+  set.seed(seed)
+  
+  # Detect if "Other" is in the taxa list
+  has_other <- "Other" %in% taxa_list
+  
+  # Number of unique taxa excluding "Other"
+  num_taxa <- length(taxa_list)
+  if (has_other) {
+    num_taxa <- num_taxa - 1  # Reduce count since "Other" is pre-defined as black
+  }
+  
+  # Generate a dark color palette for the non-"Other" taxa
+  bac_palette <- colorRampPalette(brewer.pal(9, "Set1"))(num_taxa)
+  
+  # Assign colors to taxa
+  color_assignment <- setNames(bac_palette, setdiff(taxa_list, "Other"))
+  
+  # Assign black to "Other" if present
+  if (has_other) {
+    color_assignment["Other"] <- "#000000"
+  }
+  
+  return(color_assignment)  # Return named vector
+}
+
+```
+
+### `generate_arch_palette()`
+
+Generates a color palette for Archaea taxonomic groups using the `Set2` color scheme from `RColorBrewer.` Similar to the Bacteria palette function, it assigns black to `“Other”` if present and ensures color reproducibility using a seed value.
+
+```{r Color Palette Function for Archaea (Set2)}
+# Function to generate a Archaea color palette with "Other" as black
+generate_arch_palette <- function(taxa_list, seed = 123) {
+  
+  # Ensure reproducibility
+  set.seed(seed)
+  
+  # Detect if "Other" is in the taxa list
+  has_other <- "Other" %in% taxa_list
+  
+  # Number of unique taxa excluding "Other"
+  num_taxa <- length(taxa_list)
+  if (has_other) {
+    num_taxa <- num_taxa - 1  # Reduce count since "Other" is pre-defined as black
+  }
+  
+  # Generate a light color palette for the non-"Other" taxa
+  arch_palette <- colorRampPalette(brewer.pal(8, "Set2"))(num_taxa)
+  
+  # Assign colors to taxa
+  color_assignment <- setNames(arch_palette, setdiff(taxa_list, "Other"))
+  
+  # Assign black to "Other" if present
+  if (has_other) {
+    color_assignment["Other"] <- "#000000"
+  }
+  
+  return(color_assignment)  # Return named vector
+}
+
+```
+
+## Function: `summarize_taxa()`
+
+**Purpose.** Prepare rank-specific data for stacked bar plots from melted relative abundances (`RelAbund`). The function aggregates by sample and taxonomic path up to `taxa_rank`, keeps the union of top-N taxa across samples, and relabels everything else (and any value below threshold) as `"Other"`. Lower ranks are blanked for `"Other"`. The returned table includes Total_Abundance and a factor-ordered `taxa_rank`
+(global abundance order with `"Unclassified"` and `"Other"` last).
+
+**Arguments:**
+
+• `melted_df`: long table from psmelt()/Code 3 with columns RelAbund, Domain→Genus, and your sample column.
+
+• `taxa_rank`: one of
+c("Domain","Phylum","Class","Order","Family","Genus").
+
+• `sample_col`: grouping column on x-axis (default "Sample_Layer").
+
+• `top_n`: count of taxa to keep (union across samples).
+
+• `threshold`: same units as RelAbund (your pipeline uses percent). This will move taxa below the threshold argument as "Other". Default `threshold = 1` means “hide contributions \< 1%.” *Note: A high threshold can mask rare but meaningful taxa; use only for visualization (analyses should use the unpooled data)*
+
+**Returns.** A data.frame with: `sample_col`, ranks up to `taxa_rank`, and `Total_Abundance`. The `taxa_rank` column is a factor ordered by global abundance with `"Unclassified"` and `"Other"` appended at the end.
+
+*Notes: If your upstream `RelAbund` is in [0,1] fractions, lower threshold accordingly and adjust y-axis labels to “Proportion.”*
+
+```{r Summarize_Taxa function}
+summarize_taxa <- function(melted_df, taxa_rank, sample_col = "Sample_Layer", top_n = 17, threshold = 1) {
+  sample_sym <- rlang::sym(sample_col)
+  
+  tax_ranks <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus")
+  higher_ranks <- tax_ranks[1:match(taxa_rank, tax_ranks)]
+  
+  # Step 1: Group by sample and taxonomic levels
+  taxa_abundance <- melted_df %>%
+    dplyr::group_by(!!sample_sym, !!!syms(higher_ranks)) %>%
+    dplyr::summarize(Total_Abundance = sum(RelAbund, na.rm = TRUE), .groups = "drop") %>%
+    dplyr::mutate(across(all_of(higher_ranks), as.character))
+  
+ # Identify top N taxa per sample
+top_taxa_per_sample <- taxa_abundance %>%
+  dplyr::group_by(!!sample_sym) %>%
+  dplyr::arrange(desc(Total_Abundance)) %>%
+  dplyr::slice_head(n = top_n) %>%
+  dplyr::pull(.data[[taxa_rank]]) %>%
+  unique()
+
+# Use union of top taxa across all samples
+top_taxa <- unique(top_taxa_per_sample)
+
+  
+  # Step 3: Label anything not in top N or < threshold per sample as "Other"
+  taxa_abundance <- taxa_abundance %>%
+    dplyr::mutate(
+      !!taxa_rank := ifelse(
+        .data[[taxa_rank]] %in% top_taxa & Total_Abundance >= threshold,
+        .data[[taxa_rank]],
+        "Other"
+      )
+    )
+  
+  # Step 4: Set lower ranks to NA for "Other"
+  lower_ranks <- tax_ranks[(match(taxa_rank, tax_ranks) + 1):length(tax_ranks)]
+  if (length(lower_ranks) > 0) {
+    for (lr in lower_ranks) {
+      if (lr %in% colnames(taxa_abundance)) {
+        taxa_abundance[[lr]] <- ifelse(taxa_abundance[[taxa_rank]] == "Other", NA, taxa_abundance[[lr]])
+      }
+    }
+  }
+  
+  # Step 5: Recalculate "Other" totals (merged version already includes them)
+  final_taxa_df <- taxa_abundance %>%
+    dplyr::group_by(!!sample_sym, !!!syms(higher_ranks)) %>%
+    dplyr::summarize(Total_Abundance = sum(Total_Abundance), .groups = "drop")
+  
+  # Step 6: Sort taxon levels for plotting
+  taxa_order <- final_taxa_df %>%
+    dplyr::group_by(.data[[taxa_rank]]) %>%
+    dplyr::summarize(Global_Abundance = sum(Total_Abundance)) %>%
+    dplyr::arrange(desc(Global_Abundance)) %>%
+    dplyr::pull(.data[[taxa_rank]])
+  
+  taxa_order <- c(setdiff(taxa_order, c("Unclassified", "Other")), "Unclassified", "Other")
+  final_taxa_df[[taxa_rank]] <- factor(final_taxa_df[[taxa_rank]], levels = taxa_order)
+  
+  return(final_taxa_df)
+}
+
+```
+
+# Load data prepare it for plotting
+
+```{r To reset data without erasing functions}
+# To reset data without erasing functions
+rm(list = ls()[!sapply(ls(), function(x) is.function(get(x)))])
+```
+
+## Load Data
+
+**Load pre-melted relative-abundance tables (by Sample_Layer).** Reads the RDS produced in Code 3 and extracts three long tables: All Prokaryotes, Archaea, and Bacteria. Each has RelAbund (%) plus taxonomy columns needed for plotting.
+
+*Note: The list element names in the RDS can differ by build (e.g., with/without SciRep\_ prefix and datafiles with SLayer, SName or SType). If you see NULL on assignment, check with names(microbiome_data) and adjust the keys accordingly.*
+
+```{r Load data}
+
+microbiome_data <- readRDS("OutputData/RData/PE_SciRep_Arch_Bac_merged_rel_melt_SLayer.RDS") #Change file based on the data you will be plotting. Here, we will use the dataset configured with Sample_Layer back in code 3. 
+
+# Assign objects to variables
+Arch_Bac_merged_rel_melt <- microbiome_data$Arch_Bac_merged_rel_melt_SLayer
+Arch_merged_rel_melt <- microbiome_data$Arch_merged_rel_melt_SLayer
+Bac_merged_rel_melt <- microbiome_data$Bac_merged_rel_melt_SLayer
+
+rm(microbiome_data)
+```
+
+## Summarize data before plotting
+
+**Collapse to top taxa per rank + pool the rest as “Other.”** Calls `summarize_taxa()` for each rank (Phylum→Genus) and domain (All/Bacteria/Archaea) using `Sample_Layer` as the x-axis grouping. The function keeps the **union of per-sample top-N taxa** and relabels sub-threshold contributions as **“Other.”**
+
+• `RelAbund` is in **percent**; thus `threshold = 1` means “hide \<1% within a sample” (pooled, not dropped).
+
+• Larger `top_n` ⇒ bigger legends; raise/lower per figure as needed.
+
+```{r Summarized abundance per taxa for Plotting}
+
+sample_col <- "Sample_Layer" # Change to Sample_name or Sample_Type if plotting relative to other columns
+
+#For all Prokaryotes
+Phylum_ALL_df <- summarize_taxa(Arch_Bac_merged_rel_melt, taxa_rank = "Phylum",sample_col, top_n = 15, threshold = 1)
+Class_ALL_df <- summarize_taxa(Arch_Bac_merged_rel_melt, taxa_rank = "Class", sample_col, top_n = 25)
+Order_ALL_df <- summarize_taxa(Arch_Bac_merged_rel_melt, taxa_rank = "Order", sample_col, top_n = 100)
+Family_ALL_df <- summarize_taxa(Arch_Bac_merged_rel_melt, taxa_rank = "Family", sample_col, top_n = 50, threshold = 1)
+Genus_ALL_df <- summarize_taxa(Arch_Bac_merged_rel_melt, taxa_rank = "Genus", sample_col, top_n = 40, threshold = 1)
+
+
+#For Bacteria
+Phylum_Bac_df <- summarize_taxa(Bac_merged_rel_melt, taxa_rank = "Phylum",sample_col, top_n = 17)
+Class_Bac_df <- summarize_taxa(Bac_merged_rel_melt, taxa_rank = "Class", sample_col, top_n = 30)
+Order_Bac_df <- summarize_taxa(Bac_merged_rel_melt, taxa_rank = "Order", sample_col, top_n = 40)
+Family_Bac_df <- summarize_taxa(Bac_merged_rel_melt, taxa_rank = "Family", sample_col, top_n = 70)
+Genus_Bac_df <- summarize_taxa(Bac_merged_rel_melt, taxa_rank = "Genus", sample_col, top_n = 60)
+
+#For Archaea
+Phylum_Arch_df <- summarize_taxa(Arch_merged_rel_melt, taxa_rank = "Phylum", sample_col, top_n = 17)
+Class_Arch_df <- summarize_taxa(Arch_merged_rel_melt, taxa_rank = "Class", sample_col, top_n = 20)
+Order_Arch_df <- summarize_taxa(Arch_merged_rel_melt, taxa_rank = "Order", sample_col, top_n = 40)
+Family_Arch_df <- summarize_taxa(Arch_merged_rel_melt, taxa_rank = "Family", sample_col, top_n = 50)
+Genus_Arch_df <- summarize_taxa(Arch_merged_rel_melt, taxa_rank = "Genus", sample_col, top_n = 60)
+
+
+```
+
+## Generate Palettes
+
+**Map taxa to colors (rank-specific, reproducible).** Builds named hex-color vectors per rank using `Set1` for All/Bacteria and `Set2` for Archaea. `"Other"` is forced to **black** for a consistent pooled category.
+
+*Tip: Because `summarize_taxa()` sets the taxon column as an **ordered factor**, you can use `levels(df$Phylum)` (instead of `unique(...)`) to guarantee palette coverage in the exact legend order.*
+
+```{r Generate color Palettes }
+# generate color palette for all
+# Note: This portion, even though Im using the palette code for bacteria, I will use it for the Arch_Bac as well. 
+color_palettes_Phylum_ALL <- generate_bac_palette(unique(Phylum_ALL_df$Phylum))
+color_palettes_Class_ALL <- generate_bac_palette(unique(Class_ALL_df$Class))
+color_palettes_Order_ALL <- generate_bac_palette(unique(Order_ALL_df$Order))
+color_palettes_Family_ALL <- generate_bac_palette(unique(Family_ALL_df$Family))
+color_palettes_Genus_ALL <- generate_bac_palette(unique(Genus_ALL_df$Genus))
+
+
+# Generate color palette for Bacteria
+color_palettes_Phylum_Bac <- generate_bac_palette(unique(Phylum_Bac_df$Phylum))
+color_palettes_Class_Bac <- generate_bac_palette(unique(Class_Bac_df$Class))
+color_palettes_Order_Bac <- generate_bac_palette(unique(Order_Bac_df$Order))
+color_palettes_Family_Bac <- generate_bac_palette(unique(Family_Bac_df$Family))
+color_palettes_Genus_Bac <- generate_bac_palette(unique(Genus_Bac_df$Genus))
+
+# Generate color palette for Archaea
+color_palettes_Phylum_Arch <- generate_arch_palette(unique(Phylum_Arch_df$Phylum))
+color_palettes_Class_Arch <- generate_arch_palette(unique(Class_Arch_df$Class))
+color_palettes_Order_Arch <- generate_arch_palette(unique(Order_Arch_df$Order))
+color_palettes_Family_Arch <- generate_arch_palette(unique(Family_Arch_df$Family))
+color_palettes_Genus_Arch <- generate_arch_palette(unique(Genus_Arch_df$Genus))
+
+```
+
+# Plotting
+
+This section builds the manuscript figures showing stacked bar charts of relative abundance by sample grouping. It takes the rank-summarized tables produced just above (`*_ALL_df, *_Bac_df, *_Arch_df`) and renders Domain → Genus plots with consistent ordering, colors, and export settings.
+
+**Data & units**
+
+• Bars plot relative abundance (%) per `Sample_Layer` (from `RelAbund`, summarized by `summarize_taxa()` into `Total_Abundance`). 
+
+• Within each sample, all taxa (including the pooled “Other”) sum to ~100%.
+
+**Top-N and threshold behavior**
+
+• `summarize_taxa()` keeps the union of top-N taxa across samples; all others (and any per-sample value < `threshold`) are labeled “Other.” 
+
+• Use `top_n` to balance detail vs. legend size. Use `threshold` (in percent) to hide tiny slivers while preserving totals (they’re pooled, not dropped).
+
+**Ordering of samples**
+
+• Custom vectors (`sample_order_SLayer`, etc.) define the figure layout (site/depth logic).
+
+• We use `coord_flip()` and `scale_x_discrete(limits = rev(...))` so layers read in a top-to-bottom depth orientation.
+
+**Color mapping**
+
+Palettes are named vectors created per rank:
+
+• All + Bacteria: generate_bac_palette() (Brewer Set1).
+
+• Archaea: generate_arch_palette() (Brewer Set2).
+
+The taxon columns are ordered factors, so palettes are built from levels(...) to keep legend order and colors stable.
+
+“Other” is always black for a clear pooled category; Domain plots use a fixed red/blue scheme.
+
+**Consistency & exports**
+
+Each figure uses the same minimalist theme, axis labels, and legend layout for comparability across ranks/domains.
+
+Every plot is exported as:
+
+• Interactive HTML (for exploratory inspection),
+
+• SVG (vector editing in Illustrator/Inkscape),
+
+• TIFF 600 dpi (journal-ready).
+
+Filenames encode the domain and rank (e.g., ALL_Phylum_summary_plot.*).
+
+***Notes:***
+
+*• These plots are for visualization; statistical analyses should use the unpooled data.*
+
+*• If your output directory differs, adjust the plots/ paths or create the folder before saving.*
+
+*• Keep seed/palette choices fixed to ensure identical colors across re-runs and figures.*
+
+
+### Define Variables in order of apperance. 
+
+These vectors define the display order used on the x-axis (with` coord_flip()` this becomes vertical order). `sample_order_SLayer` reflects a depth/site logic for layered samples; `sample_order_SName` orders sites; `sample_order_SType` orders deposit classes. Plots below apply these with `scale_x_discrete(limits = rev(...))` so bars appear in a consistent, interpretable sequence.
+
+```{r Define Sample Order for plotting}
+#Defines the custom order in which samples will appear in plots. This ensures that samples follow logical spatial or depth-based sequences, improving interpretability of bar plots.
+
+sample_order_SLayer <- c("POE1-gc", "POE1-g", "POE1-R", "POE1-B", 
+                       "JB-C", "JB-g", "JB-DP", "JB-B", 
+                      "PS-C1", "PS-C2", "PS-Br", "PS-L", "PS-Bottom")
+
+sample_order_SName <- c("POE1", "JB","PS")
+
+sample_order_SType <- c("Microbialite", "Microbial_Mat")
+
+```
+
+
+
+## Domain Level
+
+Visualizes the proportion of Archaea vs. Bacteria per `Sample_Layer, Sample_name or Sample_Type` using the long table from Code 3 (`RelAbund` in %). 
+
+Colors are set manually (red/blue), and the axis is flipped so depth-like order reads top→bottom.
+
+```{r Plotting Domain summary for all Prokaryotes}
+
+# Define colors
+Domain_Colors <- c("Archaea" = "red","Bacteria" = "blue")
+
+# Create the bar plot with ggplot
+Plot_ALL_Domain <- ggplot(Arch_Bac_merged_rel_melt, aes(x = Sample_Layer, y = RelAbund, fill = Domain)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = Domain_Colors) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Domain") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Domain-Level Taxonomic Composition by Depth")
+
+# Display the plot
+Plot_ALL_Domain
+
+# Note: this plot is not used in the manuscript, as the % of Bacteria and Archaea were included in suppemental table 2
+
+```
+
+### Save Domain plot (optional)
+
+```{r Save Domain Plot}
+
+# Convert ggplot to an interactive plotly object 
+plotty_ALL_Domain_interactive <- ggplotly(Plot_ALL_Domain)
+
+# Save as an interactive HTML file
+saveWidget(plotty_ALL_Domain_interactive, "plots/ALL_Domain_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/ALL_Domain_summary_plot.svg", plot = Plot_ALL_Domain, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/ALL_Domain_summary_plot.tiff", plot = Plot_ALL_Domain, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved")
+
+
+
+```
+
+
+## Phylum Level
+
+### General (All Prokaryotes)
+
+Uses `Phylum_ALL_df` from `summarize_taxa()` (top-N pooling with “Other”) to plot relative abundance per `Sample_Layer, Sample_name or Sample_Type`. The palette is a named vector mapping each phylum to a stable color; "Other" remains black. Axis order follows `sample_order_SLayer` (if using Sample_Layer), and is reversed under `coord_flip()`.
+
+```{r Plotting Phylum summary ALL}
+# Creates a bar plot of phylum-level composition across samples for all prokaryotes
+
+# Create the bar plot with ggplot
+Plot_ALL_Phylum <- ggplot(Phylum_ALL_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Phylum, text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Phylum_ALL) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Phylum") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Phylum-Level Taxonomic Composition by Depth")
+
+# Display the plot
+plotty_ALL_Phylum_interactive <- ggplotly(Plot_ALL_Phylum, tooltip = c("y", "color", "text"))
+plotty_ALL_Phylum_interactive
+
+```
+
+#### Save block (All Prokaryotes, Phylum)
+
+
+**Export interactive and publication assets.** Saves **(i) an interactive HTML (ggplotly + saveWidget)**, **(ii) an SVG for vector editing on Illustrator**, and **(iii) a 600 dpi TIFF for sharing**. Paths assume plots/ exists; create it beforehand if needed.
+
+
+```{r Save Prokaryote Phylum Plot, echo=T, include=T}
+
+# Save as an interactive HTML file
+saveWidget(plotty_ALL_Phylum_interactive, "plots/ALL_Phylum_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as ALL_Phylumlevel_taxonomy_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/ALL_Phylum_summary_plot.svg", plot = Plot_ALL_Phylum, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as ALL_Phylum_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/ALL_Phylum_summary_plot.tiff", plot = Plot_ALL_Phylum, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as ALL_Phylum_summary_plot.tiff")
+
+```
+
+### Bacteria
+
+Same layout as “All,” restricted to the **Bacteria subset** and its palette. Because `Total_Abundance` originates from `RelAbund`, the y-axis reflects relative abundance (%). The legend uses the palette order set by `summarize_taxa()` so colors stay consistent across figures.
+
+
+```{r Plotting Phylum summary Bacteria}
+
+# Generates a phylum-level bar plot specifically for Bacteria
+
+# Create the bar plot with ggplot
+Plot_Bac_Phylum <- ggplot(Phylum_Bac_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Phylum)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Phylum_Bac) +
+  labs(x = "Sample (Depth Order)", y = "Relative Abundance (%)", fill = "Phylum") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Bacteria Phylum-Level Taxonomic Composition by Depth")
+
+# Convert ggplot to an interactive plotly object 
+plotty_Bac_Phylum_interactive <- ggplotly(Plot_Bac_Phylum)
+plotty_Bac_Phylum_interactive
+
+
+```
+
+#### Save block (Bacteria, Phylum)
+
+Export Bacteria phylum plots
+
+```{r Save Bacteria Phylum Plot, echo=F, include=F}
+
+# Save as an interactive HTML file
+saveWidget(plotty_Bac_Phylum_interactive, "plots/Bacteria_Phylum_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as Bacteria_Phylumlevel_taxonomy_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Bacteria_Phylum_summary_plot.svg", plot = Plot_Bac_Phylum, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as Bacteria_Phylum_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Bacteria_Phylum_summary_plot.tiff", plot = Plot_Bac_Phylum, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as Bacteria_Phylum_summary_plot.tiff")
+
+```
+
+### Archaea
+
+Same layout as “All,” restricted to the **Archaea subset** and its palette. Because `Total_Abundance` originates from `RelAbund`, the y-axis reflects relative abundance (%). The legend uses the palette order set by `summarize_taxa()` so colors stay consistent across figures.
+
+```{r Plotting Phylum summary Archaea}
+
+# Create the bar plot with ggplot
+Plot_Arch_Phylum <- ggplot(Phylum_Arch_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Phylum)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Phylum_Arch) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Phylum") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Archaea Phylum-Level Taxonomic Composition by Depth (Archaea)")
+
+# Convert ggplot to an interactive plotly object
+plotty_Arch_Phylum_interactive <- ggplotly(Plot_Arch_Phylum)
+plotty_Arch_Phylum_interactive
+
+
+```
+
+
+#### Save block (Archaea, Phylum)
+
+Export Archaea phylum plots
+
+
+```{r Save Archaea Phylum Plot, echo=F, include=F}
+
+# Save as an interactive HTML file
+saveWidget(plotty_Arch_Phylum_interactive, "plots/Archaea_Phylum_summary_plot_V2.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as Archaea_Phylum_summary_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Archaea_Phylum_summary_plot_V2.svg", plot = Plot_Arch_Phylum, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as Archaea_Phylum_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Archaea_Phylum_summary_plot_V2.tiff", plot = Plot_Arch_Phylum, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as Archaea_Phylum_summary_plot.tiff")
+
+```
+
+## Class Level
+
+### General (All Prokaryotes)
+
+```{r Class ALL plot}
+
+# Create the bar plot with ggplot
+Plot_ALL_Class <- ggplot(Class_ALL_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Class, text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum,
+    "<br>Class:", Class))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Class_ALL) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Class") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Class-Level Taxonomic Composition by Depth")
+
+# Convert ggplot to an interactive plotly object 
+plotty_ALL_Class_interactive <- ggplotly(Plot_ALL_Class, tooltip = c("y", "color", "text"))
+plotty_ALL_Class_interactive
+
+```
+
+#### Save block (All, Class)
+
+Export Prokaryotes class plots
+
+```{r Save ALL Class Plot, echo=T, include=T}
+
+# Save as an interactive HTML file
+saveWidget(plotty_ALL_Class_interactive, "plots/Prokaryote_Class_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as Prokaryote_Class_taxonomy_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Prokaryote_Class_summary_plot.svg", plot = Plot_ALL_Class, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as Prokaryote_Class_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Prokaryote_Class_summary_plot.tiff", plot = Plot_ALL_Class, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as Prokaryote_Class_summary_plot.tiff")
+
+```
+
+
+
+### Bacteria
+
+```{r Class Bac plot}
+# Create the bar plot with ggplot
+Plot_Bac_Class <- ggplot(Class_Bac_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Class, text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum,
+    "<br>Class:", Class))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Class_Bac) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Class") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Bacteria Class-Level Taxonomic Composition by Depth")
+
+plotty_Bac_Class_interactive <- ggplotly(Plot_Bac_Class, tooltip = c("y", "color", "text"))
+plotty_Bac_Class_interactive
+
+```
+
+
+#### Save block (Bacteria, Class)
+
+Export Bacteria class plots
+
+```{r Save Bac Class Plot, echo=T, include=T}
+
+# Save as an interactive HTML file
+saveWidget(plotty_Bac_Class_interactive, "plots/Bac_Class_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as Bac_Class_taxonomy_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Bac_Class_summary_plot.svg", plot = Plot_Bac_Class, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as Bac_Class_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Bac_Class_summary_plot.tiff", plot = Plot_Bac_Class, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as Bac_Class_summary_plot.tiff")
+
+```
+
+
+
+### Archaea
+
+```{r Class Arch plot}
+# Create the bar plot with ggplot
+Plot_Arch_Class <- ggplot(Class_Arch_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Class, text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum,
+    "<br>Class:", Class))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Class_Arch) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Class") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Archaea Class-Level Taxonomic Composition by Depth")
+
+# Convert ggplot to an interactive plotly object 
+plotty_Arch_Class_interactive <- ggplotly(Plot_Arch_Class, tooltip = c("y", "color", "text"))
+plotty_Arch_Class_interactive
+
+
+```
+
+#### Save block (Archaea, Class)
+
+Export Archaea class plots
+
+```{r Save Arch Class Plot, echo=T, include=T}
+
+# Convert ggplot to an interactive plotly object 
+plotty_Arch_Class_interactive <- ggplotly(Plot_Arch_Class, tooltip = c("y", "color", "text"))
+
+# Save as an interactive HTML file
+saveWidget(plotty_Arch_Class_interactive, "plots/Arch_Class_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as Arch_Class_taxonomy_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Arch_Class_summary_plot.svg", plot = Plot_Arch_Class, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as Arch_Class_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Arch_Class_summary_plot.tiff", plot = Plot_Arch_Class, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as Arch_Class_summary_plot.tiff")
+
+```
+
+## Order Level
+
+### General (All Prokaryotes)
+
+```{r Order plot}
+
+# Create the bar plot with ggplot
+Plot_ALL_Order <- ggplot(Order_ALL_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Order,text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum,
+    "<br>Class:", Class,
+    "<br>Order:", Order))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Order_ALL) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Order") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Order-Level Taxonomic Composition by Depth")
+
+# Convert ggplot to an interactive plotly object 
+plotty_ALL_Order_interactive <- ggplotly(Plot_ALL_Order, tooltip = c("y", "color", "text"))
+plotty_ALL_Order_interactive
+
+
+```
+
+
+#### Save block (All, Order)
+
+Export Prokaryotes class plots
+
+```{r Save ALL Order Plot, echo=T, include=T}
+
+# Save as an interactive HTML file
+saveWidget(plotty_ALL_Order_interactive, "plots/Prokaryote_Order_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as Prokaryote_Order_taxonomy_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Prokaryote_Order_summary_plot.svg", plot = Plot_ALL_Order, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as Prokaryote_Order_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Prokaryote_Order_summary_plot.tiff", plot = Plot_ALL_Order, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as Prokaryote_Order_summary_plot.tiff")
+
+```
+
+
+
+### Bacteria
+
+```{r Order Bac plot}
+# Create the bar plot with ggplot
+Plot_Bac_Order <- ggplot(Order_Bac_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Order, text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum,
+    "<br>Class:", Class,
+    "<br>Order:", Order))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Order_Bac) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Order") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Bacteria Order-Level Taxonomic Composition by Depth")
+
+plotty_Bac_Order_interactive <- ggplotly(Plot_Bac_Order, tooltip = c("y", "color", "text"))
+plotty_Bac_Order_interactive
+
+```
+
+
+#### Save block (Bacteria, Order)
+
+Export Bacteria class plots
+
+```{r Save Bac Order Plot, echo=T, include=T}
+
+# Save as an interactive HTML file
+saveWidget(plotty_Bac_Order_interactive, "plots/Bac_Order_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as Bac_Order_taxonomy_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Bac_Order_summary_plot.svg", plot = Plot_Bac_Order, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as Bac_Order_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Bac_Order_summary_plot.tiff", plot = Plot_Bac_Order, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as Bac_Order_summary_plot.tiff")
+
+```
+
+
+
+### Archaea
+
+```{r Order Arch plot}
+# Create the bar plot with ggplot
+Plot_Arch_Order <- ggplot(Order_Arch_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Order, text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum,
+    "<br>Class:", Class,
+    "<br>Order:", Order))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Order_Arch) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Order") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Archaea Order-Level Taxonomic Composition by Depth")
+
+# Convert ggplot to an interactive plotly object 
+plotty_Arch_Order_interactive <- ggplotly(Plot_Arch_Order, tooltip = c("y", "color", "text"))
+plotty_Arch_Order_interactive
+
+
+```
+
+#### Save block (Archaea, Order)
+
+Export Archaea Order plots
+
+```{r Save Arch Order Plot, echo=T, include=T}
+
+# Save as an interactive HTML file
+saveWidget(plotty_Arch_Order_interactive, "plots/Arch_Order_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as Arch_Order_taxonomy_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Arch_Order_summary_plot.svg", plot = Plot_Arch_Order, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as Arch_Order_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Arch_Order_summary_plot.tiff", plot = Plot_Arch_Order, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as Arch_Order_summary_plot.tiff")
+
+```
+
+
+
+## Family Level
+
+### General (All Prokaryotes)
+
+```{r Family plot}
+
+# Create the bar plot with ggplot
+Plot_ALL_Family <- ggplot(Family_ALL_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Family, text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum,
+    "<br>Class:", Class,
+    "<br>Order:", Order,
+    "<br>Family:", Family))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Family_ALL) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Family") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Family-Level Taxonomic Composition by Depth")
+
+# Convert ggplot to an interactive plotly object 
+plotty_ALL_Family_interactive <- ggplotly(Plot_ALL_Family, tooltip = c("y", "text"))
+plotty_ALL_Family_interactive
+
+
+```
+
+
+#### Save block (All, Family)
+
+
+```{r Save Prokaryote Family Plot, echo=T, include=T}
+
+# Save as an interactive HTML file
+saveWidget(plotty_ALL_Family_interactive, "plots/ALL_Family_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/ALL_Family_summary_plot.svg", plot = Plot_ALL_Family, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/ALL_Family_summary_plot.tiff", plot = Plot_ALL_Family, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved")
+
+```
+
+
+### Bacteria
+
+```{r Family Bac plot}
+# Create the bar plot with ggplot
+Plot_Bac_Family <- ggplot(Family_Bac_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Family, text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum,
+    "<br>Class:", Class,
+    "<br>Order:", Order,
+    "<br>Family:", Family))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Family_Bac) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Family") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Bacteria Family-Level Taxonomic Composition by Depth")
+
+plotty_Bac_Family_interactive <- ggplotly(Plot_Bac_Family, tooltip = c("y", "color", "text"))
+plotty_Bac_Family_interactive
+
+```
+
+
+#### Save block (Bacteria, Family)
+
+Export Bacteria Family plots
+
+```{r Save Bac Family Plot, echo=T, include=T}
+
+# Save as an interactive HTML file
+saveWidget(plotty_Bac_Family_interactive, "plots/Bac_Family_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as Bac_Family_taxonomy_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Bac_Family_summary_plot.svg", plot = Plot_Bac_Family, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as Bac_Family_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Bac_Family_summary_plot.tiff", plot = Plot_Bac_Family, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as Bac_Family_summary_plot.tiff")
+
+```
+
+
+
+### Archaea
+
+```{r Family Arch plot}
+# Create the bar plot with ggplot
+Plot_Arch_Family <- ggplot(Family_Arch_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Family, text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum,
+    "<br>Class:", Class,
+    "<br>Order:", Order,
+    "<br>Family:", Family))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Family_Arch) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Family") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Archaea Family-Level Taxonomic Composition by Depth")
+
+# Convert ggplot to an interactive plotly object 
+plotty_Arch_Family_interactive <- ggplotly(Plot_Arch_Family, tooltip = c("y", "color", "text"))
+plotty_Arch_Family_interactive
+
+
+```
+
+#### Save block (Archaea, Family)
+
+Export Archaea Family plots
+
+```{r Save Arch Family Plot, echo=T, include=T}
+
+# Save as an interactive HTML file
+saveWidget(plotty_Arch_Family_interactive, "plots/Arch_Family_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as Arch_Family_taxonomy_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Arch_Family_summary_plot.svg", plot = Plot_Arch_Family, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as Arch_Family_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Arch_Family_summary_plot.tiff", plot = Plot_Arch_Family, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as Arch_Family_summary_plot.tiff")
+
+```
+
+
+
+## Genus Level
+
+### General (All Prokaryotes)
+
+```{r Genus plot}
+
+Plot_ALL_Genus <- ggplot(Genus_ALL_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Genus, text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum,
+    "<br>Order:", Order,
+    "<br>Family:", Family,
+    "<br>Genus:", Genus
+  ))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Genus_ALL) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Genus") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Genus-Level Taxonomic Composition by Depth")
+
+# Convert ggplot to an interactive plotly object 
+plotty_ALL_Genus_interactive <- ggplotly(Plot_ALL_Genus, tooltip = c("y", "text"))
+plotty_ALL_Genus_interactive
+```
+
+
+#### Save block (All, Genus)
+
+```{r Save Prokaryote Genus Plot, echo=T, include=T}
+
+# Save as an interactive HTML file
+saveWidget(plotty_ALL_Genus_interactive, "plots/ALL_Genus_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/ALL_Genus_summary_plot.svg", plot = Plot_ALL_Genus, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as ALL_Genus_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/ALL_Genus_summary_plot.tiff", plot = Plot_ALL_Genus, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as ALL_Genus_summary_plot.tiff")
+
+```
+
+
+
+
+### Bacteria
+
+```{r Genus Bac plot}
+# Create the bar plot with ggplot
+Plot_Bac_Genus <- ggplot(Genus_Bac_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Genus, text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum,
+    "<br>Class:", Class,
+    "<br>Order:", Order,
+    "<br>Family:", Family,
+    "<br>Genus:", Genus))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Genus_Bac) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Genus") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Bacteria Genus-Level Taxonomic Composition by Depth")
+
+plotty_Bac_Genus_interactive <- ggplotly(Plot_Bac_Genus, tooltip = c("y", "color", "text"))
+plotty_Bac_Genus_interactive
+
+```
+
+
+#### Save block (Bacteria, Genus)
+
+Export Bacteria Genus plots
+
+```{r Save Bac Genus Plot, echo=T, include=T}
+
+# Save as an interactive HTML file
+saveWidget(plotty_Bac_Genus_interactive, "plots/Bac_Genus_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as Bac_Genus_taxonomy_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Bac_Genus_summary_plot.svg", plot = Plot_Bac_Genus, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as Bac_Genus_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Bac_Genus_summary_plot.tiff", plot = Plot_Bac_Genus, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as Bac_Genus_summary_plot.tiff")
+
+```
+
+
+
+### Archaea
+
+```{r Genus Arch plot}
+# Create the bar plot with ggplot
+Plot_Arch_Genus <- ggplot(Genus_Arch_df, aes(x = Sample_Layer, y = Total_Abundance, fill = Genus, text = paste(
+    "Domain:", Domain,
+    "<br>Phylum:", Phylum,
+    "<br>Class:", Class,
+    "<br>Order:", Order,
+    "<br>Family:", Family,
+    "<br>Genus:", Genus))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(sample_order_SLayer)) +  # Reverse order for depth visualization
+  scale_fill_manual(values = color_palettes_Genus_Arch) +
+  labs(x = "Sample (Depth Order)", y = "Abundance", fill = "Genus") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.key.width = unit(0.8, "cm"),
+    legend.key.height = unit(0.8, "cm"),
+    legend.box = "vertical",   # Stack the columns
+    legend.box.just = "left"  # Align legend to the left
+  ) +
+  guides(fill = guide_legend(ncol = 2)) +  # Adjust to 2 columns
+  ggtitle("Archaea Genus-Level Taxonomic Composition by Depth")
+
+# Convert ggplot to an interactive plotly object 
+plotty_Arch_Genus_interactive <- ggplotly(Plot_Arch_Genus, tooltip = c("y", "color", "text"))
+plotty_Arch_Genus_interactive
+
+
+```
+
+#### Save block (Archaea, Genus)
+
+Export Archaea Genus plots
+
+```{r Save Arch Genus Plot, echo=T, include=T}
+
+# Save as an interactive HTML file
+saveWidget(plotty_Arch_Genus_interactive, "plots/Arch_Genus_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as Arch_Genus_taxonomy_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Arch_Genus_summary_plot.svg", plot = Plot_Arch_Genus, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as Arch_Genus_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Arch_Genus_summary_plot.tiff", plot = Plot_Arch_Genus, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as Arch_Genus_summary_plot.tiff")
+
+```
+
+# Plots are ready for Illutrator and Sharing.
+
+```{r}
+#END of the code. Proceed to code 5 if you want to plot microbial guilds, code 6 for statistical analysis and plot 7 for taxonomic summary.
+```
+
+
+
+
+
+

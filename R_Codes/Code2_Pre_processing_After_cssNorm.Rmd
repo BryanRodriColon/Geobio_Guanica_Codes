@@ -1,0 +1,235 @@
+---
+title: "Code 2: Pre_processing_After_cssNorm"
+author: "Bryan Rodriguez-Colon and Yasawantha Hiripitiyage"
+date: "Last udpated: 2025-09-16"
+output: html_document
+---
+
+***Disclaimer: This R Markdown script was originally created by Yasawantha Hiripitiyage and has been adapted to for new data by Bryan Rodriguez Colon with some use of AI (chatGPT-4o & chatGPT-5)***
+
+This R Markdown script is used to turn the biom, metadata and phylogenetic tree into `phyloseq` objects for downstream microbial ecology analysis.
+
+**It performs the following tasks:**
+
+1. Loads CSS-normalized and non-normalized BIOM files.
+2. Parses taxonomy formatted using **SILVA 138** conventions.
+3. Loads and formats associated metadata and phylogenetic tree.
+4. Combines abundance, taxonomy, metadata, and tree into a single `phyloseq` object.
+5. It created a phyloseq object with the non-nomralized biom for code 6 (statistical analysis).
+6. Subsets the data by domain: **Bacteria** and **Archaea**.
+7. Saves the resulting `phyloseq` objects as `.RData` files for future analysis.
+
+
+
+```{r setup, include=T}
+# Prepare script
+knitr::opts_chunk$set(echo = TRUE)
+
+setwd("~/OneDrive - University of Kansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/R-coding/SciRep")
+rm(list = ls())
+
+
+```
+
+
+# Load libraries
+```{r load packages, message=F, include=T}
+# Load required package for microbiome data integration
+library(phyloseq)       # For microbiome data manipulation and visualization
+library(dplyr)          # For data manipulation (e.g., group_by, summarize)
+library(biomformat)     # For reading/writing BIOM files
+```
+
+# Functions
+
+## parse_taxonomy_silva138
+Parses taxonomic strings formatted with SILVA 138 prefixes (e.g., `d__Bacteria`; `p__Proteobacteria`; …). It maps one-letter prefixes to standard ranks (Domain, Phylum, Class, Order, Family, Genus, Species), removes the prefixes, and guarantees a consistent 7-level output by filling missing ranks with `NA`. This standardization is required for clean import into `phyloseq` (e.g., when building a tax_table) from QIIME2/SILVA outputs.
+
+**Steps:**
+
+• Removes SILVA-style prefixes (e.g., `d__`, `p__`, etc.; `k__` accepted as Domain).
+
+• Assigning standard rank names to each level.
+
+• Filling in missing taxonomic ranks with `NA` to ensure a complete 7-level taxonomy.
+
+This standardized output is required for correct parsing when importing taxonomy into phyloseq using QIIME2 outputs and SILVA 138 formatting.
+
+@param `char.vec` A single semicolon-delimited taxonomy string (e.g., from a BIOM file).
+
+@return A named character vector of length 7 (`Domain`, `Phylum`, `Class`, `Order`, `Family`, `Genus`, `Species`) with cleaned names and `NA` where missing.
+
+*Note: Uses `parse_taxonomy_default()` to split the string; issues a warning if no SILVA-style prefixes are detected.*
+
+```{r function parse_taxonomy_silva138, include=T, echo=T}
+# Function to parse SILVA 138-style taxonomies into standard ranks
+# Converts d__, p__, etc. to Domain, Phylum, etc.
+parse_taxonomy_silva138 <- function(char.vec) {
+  char.vec <- parse_taxonomy_default(char.vec)
+  Tranks <- c(d = "Domain", p = "Phylum", c = "Class", 
+              o = "Order", f = "Family", g = "Genus", 
+              s = "Species")
+  ti <- grep("[[:alpha:]]{1}\\_\\_", char.vec)
+  if (length(ti) == 0L) {
+    warning("No SILVA138 prefixes were found. \n", 
+            "Consider using parse_taxonomy_default() instead if true for all ASVs/OTUs. \n")
+    taxvec <- char.vec
+  } else {
+    taxvec <- gsub("[[:alpha:]]{1}\\_\\_", "", char.vec)
+    repranks <- Tranks[substr(char.vec[ti], 1, 1)]
+    names(taxvec)[ti[!is.na(repranks)]] <- repranks[!is.na(repranks)]
+  }
+  desired_ranks <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+  taxvec <- taxvec[names(taxvec) %in% desired_ranks]
+  if(length(taxvec) != length(desired_ranks)) {
+    new_tax <- setNames(rep(NA, length(desired_ranks)), desired_ranks)
+    new_tax[names(taxvec)] <- taxvec
+    taxvec <- new_tax
+  }
+  return(taxvec)
+}
+
+
+```
+
+
+# Creating the Phyloseq Objects
+
+## Load BIOMs into phyloseq (raw vs. CSS-normalized).
+
+Here we import two versions of the same table: (1) the **non-normalized** BIOM (kept as integer counts; to use this for statistical steps such as Alpha diversity), and (2) the **CSS-normalized** BIOM produced in Code1. Both imports use `parse_taxonomy_silva138` so ranks are standardized (`Domain…Species`). The two phyloseq objects share identical ASV IDs, sample IDs, and taxonomy (only the abundance values differ). 
+
+Be explicit downstream about which object you use for each analysis step. For example, to compute beta diversity, use CSS-normalized data instead of non-normalized, (i.e., `Arch_Bac_norm_biom`).
+
+
+```{r loading abundance data and phylo data to phyloseq, include = T, echo = T}
+
+# Import the non-normalized biom
+# The non normalized biom will be used for statistical analysis (e.g., alpha diversity)
+Arch_Bac_biom <- import_biom("InputData/biom_files/050525_feature_table_w_taxonomy.biom",
+                                         parseFunction = parse_taxonomy_silva138)
+
+# Import the CSS-normalized BIOM table and parse taxonomy using the SILVA 138 function
+Arch_Bac_norm_biom <- import_biom("InputData/biom_files/050525_feature_table-css-norm_w_taxonomy.biom",
+                                         parseFunction = parse_taxonomy_silva138)
+
+```
+
+
+### Checking Rank names of data
+```{r check rank names}
+
+# Optional: View the taxonomy ranks available in the dataset
+rank_names(Arch_Bac_norm_biom)
+
+```
+
+
+## Load sample metadata and convert to `phyloseq::sample_data`.
+
+We read the project metadata from CSV, then write a QIIME-style, tab-delimited mapping file because `import_qiime_sample_data()` expects that format. `check.names = FALSE` preserves column names exactly (helpful if you use spaces or symbols), and `stringsAsFactors = FALSE` prevents unintended factor coercion. The importer returns a `sample_data` object (named `Arch_Bac_map`) ready to merge with your phyloseq objects.
+
+*Note: The mapping file should have the first column as the sample identifier (ideally #SampleID in QIIME format) and those IDs must match the BIOM sample names.*
+
+```{r load map file data to R}
+
+# Load the mapping file (metadata) and convert it to `sample_data` object
+meta <- read.csv("InputData/SciRep_metadata_filtered.csv", header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
+write.table(meta, file = "InputData/SciRep_metadata_filtered.txt", sep = "\t", row.names = FALSE, quote = FALSE)
+Arch_Bac_map <- import_qiime_sample_data("InputData/SciRep_metadata_filtered.txt")
+rm(meta) #removing variables to clean environment
+
+
+```
+
+## Loading Phylogenetic Tree to R
+
+Loads the 16S phylogenetic tree in Newick format using `phyloseq::read_tree()`. Tip labels (ASV/OTU IDs) must **exactly match** the feature IDs in your BIOM objects to enable UniFrac, Faith’s PD, and other phylogeny-aware methods. If the tree is unrooted, consider midpoint or outgroup rooting before use.
+
+```{r load tree file data to R}
+
+# Load tree file in Newick format
+Arch_Bac_tree <- read_tree("InputData/050525_tree.nwk")
+
+```
+
+
+## Assemble the normalized phyloseq object (abundance + taxonomy + metadata + tree).
+We merge the CSS-normalized BIOM (`Arch_Bac_norm_biom`), the sample metadata (`Arch_Bac_map`), and the phylogenetic tree (`Arch_Bac_tree`) into a single object (`Arch_Bac_norm`). `merge_phyloseq()` intersects on both sample names and taxa IDs—any non-matching entries are silently dropped—so ensure IDs are synchronized beforehand. 
+
+```{r combine data, echo=F, include=F}
+
+# Merge BIOM table, metadata, and tree into one `phyloseq` object
+Arch_Bac_norm <- merge_phyloseq(Arch_Bac_norm_biom,
+                                       Arch_Bac_map,
+                                       Arch_Bac_tree)
+Arch_Bac_norm
+
+```
+
+
+### We will now seperate Normalized Archaea & Bacteria into two seperate datasets. 
+
+This is in case you want to only plot Bacteria or Archaea. 
+
+```{r subset archaea and bacteria}
+#Subset archaea
+Arch_norm <- subset_taxa(Arch_Bac_norm, Domain == "Archaea")
+Arch_norm
+
+#Subset bacteria
+Bac_norm <- subset_taxa(Arch_Bac_norm, Domain == "Bacteria")
+Bac_norm
+```
+
+
+# Non-Normalized phyloseqs (for Alpha Diversity)
+
+This Phyloseq with the non-normalized data is constructed for alpha diversity analysis (code 6). 
+
+```{r}
+# Merge BIOM table, metadata, and tree into one `phyloseq` object
+Arch_Bac <- merge_phyloseq(Arch_Bac_biom,
+                                       Arch_Bac_map,
+                                       Arch_Bac_tree)
+Arch_Bac
+
+#Subset archaea
+Arch <- subset_taxa(Arch_Bac, Domain == "Archaea")
+Arch
+
+#Subset bacteria
+Bac <- subset_taxa(Arch_Bac, Domain == "Bacteria")
+Bac
+
+
+```
+
+
+
+
+# Saving RDatafiles
+
+We are going to save data as RDatafiles so that we can gain easy access.
+
+
+```{r save as RData}
+save(Arch_Bac_norm, file = "OutputData/RData/SciRep_Arch_Bac_norm_050525.RData")
+save(Arch_norm, file = "OutputData/RData/SciRep_Arch_norm_050525.RData")
+save(Bac_norm, file = "OutputData/RData/SciRep_Bac_norm_050525.RData")
+
+cat("Data is ready for code 3 (relative abundance calculations)")
+
+save(Arch_Bac, file = "OutputData/RData/SciRep_Arch_Bac_050525.RData")
+save(Arch, file = "OutputData/RData/SciRep_Arch_050525.RData")
+save(Bac, file = "OutputData/RData/SciRep_Bac_050525.RData")
+
+cat("Data is ready for Alpha Diversity in code 6 (statistial analysis)")
+
+```
+
+
+
+
+
+

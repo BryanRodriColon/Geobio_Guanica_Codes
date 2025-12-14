@@ -1,0 +1,432 @@
+---
+title: "Code3: RelAbund_UnclassifiedCleaning"
+author: "Bryan Rodriguez-Colon and Yasawantha Hiripitiyage"
+date: "Last udpated: 2025-09-16"
+output: html_document
+---
+
+***Disclaimer: This R Markdown script was originally created by Yasawantha Hiripitiyage and has been adapted to for new data by Bryan Rodriguez Colon with some use of AI (chatGPT-4o & chatGPT-5)***
+
+This script calculates and summarizes **relative abundance (%)** values across various metadata groupings for 16S rRNA amplicon sequencing data. It integrates **CSS-normalized `phyloseq` objects** and prepares melted relative abundance tables for:
+
+- All Prokaryotes  
+- Bacteria only  
+- Archaea only  
+
+Across three grouping variables:
+
+- `Sample_Layer`
+- `Sample_name`
+- `Sample_Type`
+
+It ends by saving the melted data frames as `.RDS` files for plotting in Code 4 (plotting), code 5 (plotting guilds), and code 7 (taxonomy summaries).
+
+
+```{r setup, include=T}
+# Prepare script
+knitr::opts_chunk$set(echo = TRUE)
+
+setwd("~/OneDrive - University of Kansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/R-coding/SciRep")
+rm(list = ls())
+
+
+```
+
+
+
+# Loading libraries
+```{r load packages, message=F, include=T}
+# Load required packages
+library(phyloseq)     # For microbiome data structures and manipulation
+library(data.table)   # For efficient data handling
+library(dplyr)        # For data manipulation (e.g., group_by, summarize)
+
+```
+
+
+Stop data displayed in scientific notation
+```{r stop scipen}
+# Prevent scientific notation in numeric outputs
+options(scipen = 999)
+
+```
+
+# Functions to use
+
+
+## Function: `melt_merged_phyloseq()`
+
+**Purpose:** Aggregate a phyloseq object in two steps—first by a replicate variable, then by a higher-level grouping variable—then return a long (melted) table for taxonomy cleanup/filtering before any relative-abundance transform.
+
+**How it work:**
+
+1) Uses `merge_samples(physeq_obj, replicate_var)` to sum counts across replicates (default behavior), then reattaches selected metadata fields (`metadata_vars`) by matching the merged sample names (which become the factor levels of replicate_var) back to the original metadata.
+
+2) Repeats the merge at the group level with `merge_samples(..., group_var)`, again summing counts and carrying over the specified metadata by matching merged names to the levels of group_var.
+
+3) Calls `psmelt()` on the twice-merged object to return a long data frame with raw (not yet normalized) abundances, taxonomy, and the requested metadata columns.
+
+**Assumptions & notes:**
+
+• `replicate_var` and `group_var` must exist in `sample_data(physeq_obj)` and should be factors whose levels are the intended merged names; otherwise `levels()` will be empty and metadata reassignment can fail.
+
+• Metadata propagation uses `match()`; if multiple original rows map to a merged group, the first matching row’s value is used.
+
+• Counts are summed, not averaged; relative abundance is intentionally deferred.
+Returns. A long data.frame from `psmelt()` with columns for sample/group, taxonomy ranks, and Abundance (raw counts), plus the requested metadata_vars.
+
+
+```{r melt_merged_phyloseq}
+
+
+melt_merged_phyloseq <- function(physeq_obj, replicate_var, group_var, metadata_vars) {
+  
+  original_metadata <- as.data.frame(sample_data(physeq_obj))
+  
+  # Merge by replicate
+  merged_physeq <- merge_samples(physeq_obj, replicate_var)
+  sample_data(merged_physeq)[[replicate_var]] <- levels(sample_data(physeq_obj)[[replicate_var]])
+
+  new_metadata <- data.frame(sample_data(merged_physeq))
+  for (var in metadata_vars) {
+    if (var %in% colnames(original_metadata)) {
+      new_metadata[[var]] <- original_metadata[[var]][match(rownames(new_metadata), original_metadata[[replicate_var]])]
+    }
+  }
+  sample_data(merged_physeq) <- new_metadata
+
+  # Merge by group
+  final_merged_physeq <- merge_samples(merged_physeq, group_var)
+  final_metadata <- data.frame(sample_data(final_merged_physeq))
+  for (var in metadata_vars) {
+    if (var %in% colnames(new_metadata)) {
+      final_metadata[[var]] <- new_metadata[[var]][match(rownames(final_metadata), new_metadata[[group_var]])]
+    }
+  }
+  sample_data(final_merged_physeq) <- final_metadata
+
+  # Melt without normalization
+  melted_df <- psmelt(final_merged_physeq)
+
+  return(melted_df)
+}
+
+```
+
+
+## Function: `handle_all_taxa_cleanup()`
+
+**Purpose:** Clean and standardize taxon labels across ranks in a melted phyloseq table after SILVA prefix parsing (e.g., after `parse_taxonomy_silva138()`, which was done in code2). 
+
+**The function:**
+
+1) Removes rogue single-letter prefixes stuck to a capital (e.g., `fRhodo` → `Rhodo`), which can appear after upstream parsing.
+
+2) Replaces generic/missing labels (`NA`, `""`, `"Incertae_Sedis"`, `"Unclassified"`, `"uncultured"`) with a fallback from higher ranks (first non-generic in hierarchy), labeled as `HigherRank_Unclassified` (e.g., `Class_Unclassified`).
+
+3) Collapses repeated suffixes (e.g., `_Unclassified_Unclassified` → `_Unclassified`).
+
+This improves readability and produces consistent labels for summaries/plots.
+
+**Arguments:**
+
+• `melted_df` — long-format `psmelt()` output containing taxon ranks as columns.
+
+• `taxa_ranks` — ranks to clean (default: `Genus`, `Family`, `Order`, `Class`, `Phylum`).
+
+• `hierarchy` — higher-to-lower fallback order to search when a label is generic/missing (default: `Family`, `Order`, `Class`, `Phylum`).
+
+**Returns:**
+
+The input `melted_df` with cleaned labels at the specified `taxa_ranks`.
+
+*Notes:* 
+
+• Assumes SILVA prefixes (`d__`, `p__`, …) were already removed upstream (see code2).
+
+• Fallback appends `"_Unclassified"` to the first usable higher rank encountered.
+
+• Counts/abundances are untouched.
+
+```{r Function to clean taxa}
+handle_all_taxa_cleanup <- function(melted_df, taxa_ranks = c("Genus", "Family", "Order", "Class", "Phylum"), 
+                                    hierarchy = c("Family", "Order", "Class", "Phylum")) {
+  
+  for (taxa_rank in taxa_ranks) {
+    
+    # Loop through rows
+    melted_df[[taxa_rank]] <- sapply(seq_len(nrow(melted_df)), function(i) {
+      val <- melted_df[[taxa_rank]][i]
+      
+      # Step 1: Remove rogue single-letter prefixes (e.g., fRhodo → Rhodo)
+      val <- gsub("^[a-z]([A-Z])", "\\1", val)
+
+      # Step 2: Replace NA or generic with higher-rank fallback
+      if (is.na(val) || val %in% c("Incertae_Sedis", "Unclassified", "", "uncultured")) {
+        fallback_val <- NA
+        for (higher in hierarchy) {
+          higher_val <- melted_df[[higher]][i]
+          higher_val <- gsub("^[a-z]([A-Z])", "\\1", higher_val)
+          if (!is.na(higher_val) && higher_val != "" &&
+              !higher_val %in% c("Incertae_Sedis", "Unclassified", "uncultured")) {
+            fallback_val <- paste0(higher_val, "_Unclassified")
+            break
+          }
+        }
+        val <- ifelse(is.na(fallback_val), "Unclassified", fallback_val)
+      }
+
+      # Step 3: Remove repeated "_Unclassified_Unclassified"
+      val <- gsub("(_Unclassified)+", "_Unclassified", val)
+
+      return(val)
+    })
+  }
+
+  return(melted_df)
+}
+
+
+```
+
+
+
+```{r To reset data without erasing functions}
+#To reset data without erasing functions from the environment
+rm(list = ls()[!sapply(ls(), function(x) is.function(get(x)))])
+```
+
+# Load, check data quality and calculate Relative Abundance
+
+## Load data
+```{r Load data}
+
+load(file = "OutputData/RData/SciRep_Arch_Bac_norm_050525.RData")
+load(file = "OutputData/RData/SciRep_Arch_norm_050525.RData")
+load(file = "OutputData/RData/SciRep_Bac_norm_050525.RData")
+
+```
+
+
+## Created metled dataframes and clean the Taxonomy.
+
+In this section, we apply the custom `melt_merged_phyloseq()` function to merge and reshape the normalized phyloseq objects. This allows us to subsequently clean taxonomic inconsistencies using `handle_all_taxa_cleanup()`. These cleaned and melted data frames will then be used to calculate relative abundances and generate taxonomic summary outputs (taxonomy summary codes are in code 7).
+
+
+### Variables for `melt_merged_phyloseq()`
+
+`metadata_vars` lists the sample-level fields that `melt_merged_phyloseq()` will preserve and reattach after collapsing replicates and then grouping. 
+
+In this project (Rodriguez-Colon et al., 2025):
+
+• `Sample_name` = parent sample ID (e.g., `POE1`, `JB`, `PS`); not unique across replicates.
+
+• `Layer` = stratum within a sample (e.g., g, gc, R, B, C1, C2, Br, L, Bottom).
+
+• `Sample_Layer` = composite key Sample_name-Layer (e.g., `POE1-g`); this is the `replicate_var` used to collapse 1/2 replicates and is often the plotting group.
+
+• `Lagoon` = site name (e.g., Vernales [PO], Salinetas [JB], Providencia [PS]).
+
+• `Sample_Type` = deposit class (e.g., `Microbial_Mat`, `Microbialite`).
+
+```{r Variables to normalize}
+#Variables to use for the functions on this section
+metadata_vars = c("Sample_name", "Layer", "Sample_Layer", "Lagoon", "Sample_Type")
+
+#Note: For the Scientific Reports paper, the taxonomy plots are organized by Sample_Layer.
+
+```
+
+
+
+```{r Merging and melting data}
+#Merging duplicates and melting phyloseq objects per Sample layer
+Arch_Bac_merged_melt_SLayer <- melt_merged_phyloseq(Arch_Bac_norm, replicate_var = "Sample_Layer", group_var = "Sample_Layer", metadata_vars = metadata_vars)
+
+Arch_merged_melt_SLayer <- melt_merged_phyloseq(Arch_norm, replicate_var = "Sample_Layer", group_var = "Sample_Layer", metadata_vars = metadata_vars)
+
+Bac_merged_melt_SLayer <- melt_merged_phyloseq(Bac_norm, replicate_var = "Sample_Layer", group_var = "Sample_Layer", metadata_vars = metadata_vars)
+
+#Merging duplicates and melting phyloseq objects per Sample name
+Arch_Bac_merged_melt_SName <- melt_merged_phyloseq(Arch_Bac_norm, replicate_var = "Sample_Layer", group_var = "Sample_name", metadata_vars = metadata_vars)
+
+Arch_merged_melt_SName <- melt_merged_phyloseq(Arch_norm, replicate_var = "Sample_Layer", group_var = "Sample_name", metadata_vars = metadata_vars)
+
+Bac_merged_melt_SName <- melt_merged_phyloseq(Bac_norm, replicate_var = "Sample_Layer", group_var = "Sample_name", metadata_vars = metadata_vars)
+
+#Merging duplicates and melting phyloseq objects per Sample type
+Arch_Bac_merged_melt_SType <- melt_merged_phyloseq(Arch_Bac_norm, replicate_var = "Sample_Layer", group_var = "Sample_Type", metadata_vars = metadata_vars)
+
+Arch_merged_melt_SType <- melt_merged_phyloseq(Arch_norm, replicate_var = "Sample_Layer", group_var = "Sample_Type", metadata_vars = metadata_vars)
+
+Bac_merged_melt_SType <- melt_merged_phyloseq(Bac_norm, replicate_var = "Sample_Layer", group_var = "Sample_Type", metadata_vars = metadata_vars)
+
+```
+
+## Fixing taxonomic terms with `handle_all_taxa_cleanup()`
+
+```{r Fixing Taxonomy}
+# Fixing taxonomy, replacing Incertae_Sedis and dealing with NAs
+
+## Per sample layer
+Arch_Bac_merged_melt_SLayer <- handle_all_taxa_cleanup(Arch_Bac_merged_melt_SLayer)
+Arch_merged_melt_SLayer <- handle_all_taxa_cleanup(Arch_merged_melt_SLayer)
+Bac_merged_melt_SLayer <- handle_all_taxa_cleanup(Bac_merged_melt_SLayer)
+
+## Per sample name
+Arch_Bac_merged_melt_SName <- handle_all_taxa_cleanup(Arch_Bac_merged_melt_SName)
+Arch_merged_melt_SName <- handle_all_taxa_cleanup(Arch_merged_melt_SName)
+Bac_merged_melt_SName <- handle_all_taxa_cleanup(Bac_merged_melt_SName)
+
+#Per sample type
+Arch_Bac_merged_melt_SType <- handle_all_taxa_cleanup(Arch_Bac_merged_melt_SType)
+Arch_merged_melt_SType <- handle_all_taxa_cleanup(Arch_merged_melt_SType)
+Bac_merged_melt_SType <- handle_all_taxa_cleanup(Bac_merged_melt_SType)
+
+```
+
+
+# Relative Abundance
+
+In this section, we calculate the relative abundance (%) of each taxon within each sample grouping by dividing raw counts by the total abundance per group and multiplying by 100. This transformation converts absolute read counts into compositional profiles, which are more appropriate for comparing community structure across samples.
+Relative abundances are computed separately for three grouping variables:
+
+**Sample_Layer** — for main figures in the manuscript
+
+**Sample_name** — to explore per-sample patterns
+
+**Sample_Type** — to compare between broad sample categories (e.g., microbial mat vs. microbialite)
+
+Calculations are performed independently for:
+
+• All Prokaryotes (Bacteria + Archaea)
+
+• Bacteria only
+
+• Archaea only
+
+The resulting cleaned and normalized data frames are saved as .RDS files for use in Code 4 and Code 5 (visualization and statistical summaries), and code 7 (taxa summaries). Only taxa with nonzero abundance are retained to streamline output size and improve readability.
+
+
+## Relative Abundance per sample layer
+```{r Rel Abudance Per sample layer}
+#All prokaryotes
+Arch_Bac_merged_rel_melt_SLayer <- Arch_Bac_merged_melt_SLayer %>%
+  group_by(Sample_Layer) %>%
+  mutate(RelAbund = 100 * Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  select(OTU, Sample, Abundance, RelAbund, everything()) %>% filter(Abundance != 0)
+
+#Bacteria
+Bac_merged_rel_melt_SLayer <- Bac_merged_melt_SLayer %>%
+  group_by(Sample_Layer) %>%
+  mutate(RelAbund = 100 * Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  select(OTU, Sample, Abundance, RelAbund, everything()) %>% filter(Abundance != 0)
+
+#Archaea
+Arch_merged_rel_melt_SLayer <- Arch_merged_melt_SLayer %>%
+  group_by(Sample_Layer) %>%
+  mutate(RelAbund = 100 * Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  select(OTU, Sample, Abundance, RelAbund, everything()) %>% filter(Abundance != 0)
+
+```
+
+## Relative Abundance per sample name
+
+```{r Per Sample name}
+
+#All prokaryotes
+Arch_Bac_merged_rel_melt_SName <- Arch_Bac_merged_melt_SName %>%
+  group_by(Sample_name) %>%
+  mutate(RelAbund = 100 * Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  select(OTU, Sample, Abundance, RelAbund, everything()) %>% filter(Abundance != 0)
+
+#Bacteria
+Bac_merged_rel_melt_SName <- Bac_merged_melt_SName %>%
+  group_by(Sample_name) %>%
+  mutate(RelAbund = 100 * Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  select(OTU, Sample, Abundance, RelAbund, everything()) %>% filter(Abundance != 0)
+
+#Archaea
+Arch_merged_rel_melt_SName <- Arch_merged_melt_SName %>%
+  group_by(Sample_name) %>%
+  mutate(RelAbund = 100 * Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  select(OTU, Sample, Abundance, RelAbund, everything()) %>% filter(Abundance != 0)
+
+
+
+```
+
+
+## Relative Abundance per sample type
+
+```{r Per sample type}
+
+#All prokaryotes
+Arch_Bac_merged_rel_melt_SType <- Arch_Bac_merged_melt_SType %>%
+  group_by(Sample_Type) %>%
+  mutate(RelAbund = 100 * Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  select(OTU, Sample, Abundance, RelAbund, everything()) %>% filter(Abundance != 0)
+
+#Bacteria
+Bac_merged_rel_melt_SType <- Bac_merged_melt_SType %>%
+  group_by(Sample_Type) %>%
+  mutate(RelAbund = 100 * Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  select(OTU, Sample, Abundance, RelAbund, everything()) %>% filter(Abundance != 0)
+
+#Archaea
+Arch_merged_rel_melt_SType <- Arch_merged_melt_SType %>%
+  group_by(Sample_Type) %>%
+  mutate(RelAbund = 100 * Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  select(OTU, Sample, Abundance, RelAbund, everything()) %>% filter(Abundance != 0)
+
+
+
+```
+
+
+## Saving melted data for plotting in Code 4, 5 and 7
+
+The data will be saved for:
+
+
+**Code 4:** `Code4_16S_analysis_Plotting.Rmd`, the main plotting code
+
+**Code 5:** `Code5_guilds_BRC.Rmd`, to generate plts for guilds supplemental figure. 
+
+**Code 7:** `Code7_tax_summary.Rmd`, to generate excel files with all the taxa percentages for the results section.
+
+*Note: On the name of the files, there is a "PE", which means "Paired End".* 
+
+
+```{r save melt data as rdata}
+#Sample_Layer
+melt_file_list_SLayer = list(Arch_merged_rel_melt_SLayer = Arch_merged_rel_melt_SLayer, Bac_merged_rel_melt_SLayer = Bac_merged_rel_melt_SLayer, Arch_Bac_merged_rel_melt_SLayer = Arch_Bac_merged_rel_melt_SLayer)
+
+saveRDS(melt_file_list_SLayer, file = "OutputData/RData/PE_SciRep_Arch_Bac_merged_rel_melt_SLayer.RDS")
+
+#Sample_name
+melt_file_list_SName = list(Arch_merged_rel_melt_SName = Arch_merged_rel_melt_SName, Bac_merged_rel_melt_SName = Bac_merged_rel_melt_SName, Arch_Bac_merged_rel_melt_SName = Arch_Bac_merged_rel_melt_SName)
+
+saveRDS(melt_file_list_SName, file = "OutputData/RData/PE_SciRep_Arch_Bac_merged_rel_melt_SName.RDS")
+
+#Sample_Type
+melt_file_list_SType = list(Arch_merged_rel_melt_SType = Arch_merged_rel_melt_SType, Bac_merged_rel_melt_SType = Bac_merged_rel_melt_SType, Arch_Bac_merged_rel_melt_SType = Arch_Bac_merged_rel_melt_SType)
+
+saveRDS(melt_file_list_SType, file = "OutputData/RData/PE_SciRep_Arch_Bac_merged_rel_melt_SType.RDS")
+
+cat("Data is ready for code 4, 5, and 7!")
+
+
+```
+
+
+
