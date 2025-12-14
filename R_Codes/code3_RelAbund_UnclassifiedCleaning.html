@@ -548,9 +548,9 @@ rm(list = ls()[!sapply(ls(), function(x) is.function(get(x)))])</code></pre>
 <h1>Load, check data quality and calculate Relative Abundance</h1>
 <div id="load-data" class="section level2">
 <h2>Load data</h2>
-<pre class="r"><code>load(file = &quot;OutputData/RData/SciRep_Arch_Bac_norm_050525.RData&quot;)
-load(file = &quot;OutputData/RData/SciRep_Arch_norm_050525.RData&quot;)
-load(file = &quot;OutputData/RData/SciRep_Bac_norm_050525.RData&quot;)</code></pre>
+<pre class="r"><code>load(file = &quot;OutputData/RData/GuanicaGeobio_Arch_Bac_norm_050525.RData&quot;)
+load(file = &quot;OutputData/RData/GuanicaGeobio_Arch_norm_050525.RData&quot;)
+load(file = &quot;OutputData/RData/GuanicaGeobio_Bac_norm_050525.RData&quot;)</code></pre>
 </div>
 <div id="created-metled-dataframes-and-clean-the-taxonomy." class="section level2">
 <h2>Created metled dataframes and clean the Taxonomy.</h2>
@@ -582,7 +582,7 @@ collapse 1/2 replicates and is often the plotting group.</p>
 <pre class="r"><code>#Variables to use for the functions on this section
 metadata_vars = c(&quot;Sample_name&quot;, &quot;Layer&quot;, &quot;Sample_Layer&quot;, &quot;Lagoon&quot;, &quot;Sample_Type&quot;)
 
-#Note: For the Scientific Reports paper, the taxonomy plots are organized by Sample_Layer.</code></pre>
+#Note: For the manuscript, the taxonomy plots are organized by Sample_Layer.</code></pre>
 <pre class="r"><code>#Merging duplicates and melting phyloseq objects per Sample layer
 Arch_Bac_merged_melt_SLayer &lt;- melt_merged_phyloseq(Arch_Bac_norm, replicate_var = &quot;Sample_Layer&quot;, group_var = &quot;Sample_Layer&quot;, metadata_vars = metadata_vars)</code></pre>
 <pre><code>## Warning in asMethod(object): NAs introduced by coercion
@@ -868,17 +868,17 @@ section.</p>
 <pre class="r"><code>#Sample_Layer
 melt_file_list_SLayer = list(Arch_merged_rel_melt_SLayer = Arch_merged_rel_melt_SLayer, Bac_merged_rel_melt_SLayer = Bac_merged_rel_melt_SLayer, Arch_Bac_merged_rel_melt_SLayer = Arch_Bac_merged_rel_melt_SLayer)
 
-saveRDS(melt_file_list_SLayer, file = &quot;OutputData/RData/PE_SciRep_Arch_Bac_merged_rel_melt_SLayer.RDS&quot;)
+saveRDS(melt_file_list_SLayer, file = &quot;OutputData/RData/PE_GuanicaGeobio_Arch_Bac_merged_rel_melt_SLayer.RDS&quot;)
 
 #Sample_name
 melt_file_list_SName = list(Arch_merged_rel_melt_SName = Arch_merged_rel_melt_SName, Bac_merged_rel_melt_SName = Bac_merged_rel_melt_SName, Arch_Bac_merged_rel_melt_SName = Arch_Bac_merged_rel_melt_SName)
 
-saveRDS(melt_file_list_SName, file = &quot;OutputData/RData/PE_SciRep_Arch_Bac_merged_rel_melt_SName.RDS&quot;)
+saveRDS(melt_file_list_SName, file = &quot;OutputData/RData/PE_GuanicaGeobio_Arch_Bac_merged_rel_melt_SName.RDS&quot;)
 
 #Sample_Type
 melt_file_list_SType = list(Arch_merged_rel_melt_SType = Arch_merged_rel_melt_SType, Bac_merged_rel_melt_SType = Bac_merged_rel_melt_SType, Arch_Bac_merged_rel_melt_SType = Arch_Bac_merged_rel_melt_SType)
 
-saveRDS(melt_file_list_SType, file = &quot;OutputData/RData/PE_SciRep_Arch_Bac_merged_rel_melt_SType.RDS&quot;)
+saveRDS(melt_file_list_SType, file = &quot;OutputData/RData/PE_GuanicaGeobio_Arch_Bac_merged_rel_melt_SType.RDS&quot;)
 
 cat(&quot;Data is ready for code 4, 5, and 7!&quot;)</code></pre>
 <pre><code>## Data is ready for code 4, 5, and 7!</code></pre>

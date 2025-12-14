@@ -201,9 +201,9 @@ rm(list = ls()[!sapply(ls(), function(x) is.function(get(x)))])
 ## Load data
 ```{r Load data}
 
-load(file = "OutputData/RData/SciRep_Arch_Bac_norm_050525.RData")
-load(file = "OutputData/RData/SciRep_Arch_norm_050525.RData")
-load(file = "OutputData/RData/SciRep_Bac_norm_050525.RData")
+load(file = "OutputData/RData/GuanicaGeobio_Arch_Bac_norm_050525.RData")
+load(file = "OutputData/RData/GuanicaGeobio_Arch_norm_050525.RData")
+load(file = "OutputData/RData/GuanicaGeobio_Bac_norm_050525.RData")
 
 ```
 
@@ -233,7 +233,7 @@ In this project (Rodriguez-Colon et al., 2025):
 #Variables to use for the functions on this section
 metadata_vars = c("Sample_name", "Layer", "Sample_Layer", "Lagoon", "Sample_Type")
 
-#Note: For the Scientific Reports paper, the taxonomy plots are organized by Sample_Layer.
+#Note: For the manuscript, the taxonomy plots are organized by Sample_Layer.
 
 ```
 
@@ -411,17 +411,17 @@ The data will be saved for:
 #Sample_Layer
 melt_file_list_SLayer = list(Arch_merged_rel_melt_SLayer = Arch_merged_rel_melt_SLayer, Bac_merged_rel_melt_SLayer = Bac_merged_rel_melt_SLayer, Arch_Bac_merged_rel_melt_SLayer = Arch_Bac_merged_rel_melt_SLayer)
 
-saveRDS(melt_file_list_SLayer, file = "OutputData/RData/PE_SciRep_Arch_Bac_merged_rel_melt_SLayer.RDS")
+saveRDS(melt_file_list_SLayer, file = "OutputData/RData/PE_GuanicaGeobio_Arch_Bac_merged_rel_melt_SLayer.RDS")
 
 #Sample_name
 melt_file_list_SName = list(Arch_merged_rel_melt_SName = Arch_merged_rel_melt_SName, Bac_merged_rel_melt_SName = Bac_merged_rel_melt_SName, Arch_Bac_merged_rel_melt_SName = Arch_Bac_merged_rel_melt_SName)
 
-saveRDS(melt_file_list_SName, file = "OutputData/RData/PE_SciRep_Arch_Bac_merged_rel_melt_SName.RDS")
+saveRDS(melt_file_list_SName, file = "OutputData/RData/PE_GuanicaGeobio_Arch_Bac_merged_rel_melt_SName.RDS")
 
 #Sample_Type
 melt_file_list_SType = list(Arch_merged_rel_melt_SType = Arch_merged_rel_melt_SType, Bac_merged_rel_melt_SType = Bac_merged_rel_melt_SType, Arch_Bac_merged_rel_melt_SType = Arch_Bac_merged_rel_melt_SType)
 
-saveRDS(melt_file_list_SType, file = "OutputData/RData/PE_SciRep_Arch_Bac_merged_rel_melt_SType.RDS")
+saveRDS(melt_file_list_SType, file = "OutputData/RData/PE_GuanicaGeobio_Arch_Bac_merged_rel_melt_SType.RDS")
 
 cat("Data is ready for code 4, 5, and 7!")
 

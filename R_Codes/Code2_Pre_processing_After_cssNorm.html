@@ -496,10 +496,12 @@ to merge with your phyloseq objects.</p>
 identifier (ideally #SampleID in QIIME format) and those IDs must match
 the BIOM sample names.</em></p>
 <pre class="r"><code># Load the mapping file (metadata) and convert it to `sample_data` object
-meta &lt;- read.csv(&quot;InputData/SciRep_metadata_filtered.csv&quot;, header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
-write.table(meta, file = &quot;InputData/SciRep_metadata_filtered.txt&quot;, sep = &quot;\t&quot;, row.names = FALSE, quote = FALSE)
-Arch_Bac_map &lt;- import_qiime_sample_data(&quot;InputData/SciRep_metadata_filtered.txt&quot;)
-rm(meta) #removing variables to clean environment</code></pre>
+meta &lt;- read.csv(&quot;InputData/GuanicaGeobio_metadata.csv&quot;, header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
+write.table(meta, file = &quot;InputData/GuanicaGeobio_metadata.txt&quot;, sep = &quot;\t&quot;, row.names = FALSE, quote = FALSE)
+Arch_Bac_map &lt;- import_qiime_sample_data(&quot;InputData/GuanicaGeobio_metadata.txt&quot;)
+rm(meta) #removing variables to clean environment
+file.remove(&quot;InputData/GuanicaGeobio_metadata.txt&quot;)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
 </div>
 <div id="loading-phylogenetic-tree-to-r" class="section level2">
 <h2>Loading Phylogenetic Tree to R</h2>
@@ -578,15 +580,15 @@ Bac</code></pre>
 <h1>Saving RDatafiles</h1>
 <p>We are going to save data as RDatafiles so that we can gain easy
 access.</p>
-<pre class="r"><code>save(Arch_Bac_norm, file = &quot;OutputData/RData/SciRep_Arch_Bac_norm_050525.RData&quot;)
-save(Arch_norm, file = &quot;OutputData/RData/SciRep_Arch_norm_050525.RData&quot;)
-save(Bac_norm, file = &quot;OutputData/RData/SciRep_Bac_norm_050525.RData&quot;)
+<pre class="r"><code>save(Arch_Bac_norm, file = &quot;OutputData/RData/GuanicaGeobio_Arch_Bac_norm_050525.RData&quot;)
+save(Arch_norm, file = &quot;OutputData/RData/GuanicaGeobio_Arch_norm_050525.RData&quot;)
+save(Bac_norm, file = &quot;OutputData/RData/GuanicaGeobio_Bac_norm_050525.RData&quot;)
 
 cat(&quot;Data is ready for code 3 (relative abundance calculations)&quot;)</code></pre>
 <pre><code>## Data is ready for code 3 (relative abundance calculations)</code></pre>
-<pre class="r"><code>save(Arch_Bac, file = &quot;OutputData/RData/SciRep_Arch_Bac_050525.RData&quot;)
-save(Arch, file = &quot;OutputData/RData/SciRep_Arch_050525.RData&quot;)
-save(Bac, file = &quot;OutputData/RData/SciRep_Bac_050525.RData&quot;)
+<pre class="r"><code>save(Arch_Bac, file = &quot;OutputData/RData/GuanicaGeobio_Arch_Bac_050525.RData&quot;)
+save(Arch, file = &quot;OutputData/RData/GuanicaGeobio_Arch_050525.RData&quot;)
+save(Bac, file = &quot;OutputData/RData/GuanicaGeobio_Bac_050525.RData&quot;)
 
 cat(&quot;Data is ready for Alpha Diversity in code 6 (statistial analysis)&quot;)</code></pre>
 <pre><code>## Data is ready for Alpha Diversity in code 6 (statistial analysis)</code></pre>

@@ -135,10 +135,11 @@ We read the project metadata from CSV, then write a QIIME-style, tab-delimited m
 ```{r load map file data to R}
 
 # Load the mapping file (metadata) and convert it to `sample_data` object
-meta <- read.csv("InputData/SciRep_metadata_filtered.csv", header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
-write.table(meta, file = "InputData/SciRep_metadata_filtered.txt", sep = "\t", row.names = FALSE, quote = FALSE)
-Arch_Bac_map <- import_qiime_sample_data("InputData/SciRep_metadata_filtered.txt")
+meta <- read.csv("InputData/GuanicaGeobio_metadata.csv", header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
+write.table(meta, file = "InputData/GuanicaGeobio_metadata.txt", sep = "\t", row.names = FALSE, quote = FALSE)
+Arch_Bac_map <- import_qiime_sample_data("InputData/GuanicaGeobio_metadata.txt")
 rm(meta) #removing variables to clean environment
+file.remove("InputData/GuanicaGeobio_metadata.txt")
 
 
 ```
@@ -215,15 +216,15 @@ We are going to save data as RDatafiles so that we can gain easy access.
 
 
 ```{r save as RData}
-save(Arch_Bac_norm, file = "OutputData/RData/SciRep_Arch_Bac_norm_050525.RData")
-save(Arch_norm, file = "OutputData/RData/SciRep_Arch_norm_050525.RData")
-save(Bac_norm, file = "OutputData/RData/SciRep_Bac_norm_050525.RData")
+save(Arch_Bac_norm, file = "OutputData/RData/GuanicaGeobio_Arch_Bac_norm_050525.RData")
+save(Arch_norm, file = "OutputData/RData/GuanicaGeobio_Arch_norm_050525.RData")
+save(Bac_norm, file = "OutputData/RData/GuanicaGeobio_Bac_norm_050525.RData")
 
 cat("Data is ready for code 3 (relative abundance calculations)")
 
-save(Arch_Bac, file = "OutputData/RData/SciRep_Arch_Bac_050525.RData")
-save(Arch, file = "OutputData/RData/SciRep_Arch_050525.RData")
-save(Bac, file = "OutputData/RData/SciRep_Bac_050525.RData")
+save(Arch_Bac, file = "OutputData/RData/GuanicaGeobio_Arch_Bac_050525.RData")
+save(Arch, file = "OutputData/RData/GuanicaGeobio_Arch_050525.RData")
+save(Bac, file = "OutputData/RData/GuanicaGeobio_Bac_050525.RData")
 
 cat("Data is ready for Alpha Diversity in code 6 (statistial analysis)")
 
