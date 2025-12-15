@@ -93,7 +93,7 @@ library(dplyr) # Core data wrangling (group_by, summarize, mutate, across).
 library(htmlwidgets) # saveWidget() for interactive HTML outputs.
 ```
 
-Stop data displayed in scientific notation
+## Stop data displayed in scientific notation
 
 ```{r stop scipen}
 options(scipen = 999)

@@ -1,0 +1,433 @@
+---
+title: "Code 6: Statistical Analysis"
+author: "Bryan Rodriguez"
+date: "2025-03-11"
+output: html_document
+---
+
+***Disclaimer: This R Markdown script was created by Bryan Rodriguez Colon with some use of AI (chatGPT-4o & chatGPT-5).***
+
+## Overview
+
+This R Markdown performs the core statistical analyses for the 16S amplicon dataset and generates summary visualizations used in the manuscript. It computes alpha diversity metrics and tests for differences among metadata-defined groups, and it evaluates beta diversity using Bray–Curtis dissimilarities with ordination (PCoA) and PERMANOVA to assess compositional differences among groups.
+
+This document also includes a Venn diagram workflow that compares shared vs. unique taxa among lagoons based on presence in the relative-abundance tables grouped by `Sample_name`.
+
+
+*NOTE: Optional blocks for UniFrac and Aitchison/CLR workflows are present but can be disabled if not used in the manuscript.*
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_SciRep_Codes/R_Codes")
+
+rm(list = ls())
+
+
+```
+
+
+```{r Load packages, echo = F, include=F}
+library(ggplot2)    # Core plotting system used for alpha diversity boxplots, ordinations (PCoA), and saving figures
+library(phyloseq)   # Handles microbiome data structures and provides diversity metrics, distance calculations, and ordination tools
+library(vegan)      # Provides ecological statistics, including Bray–Curtis distances and PERMANOVA (adonis2)
+library(tidyr)      # Reshapes data for statistical summaries and plotting (e.g., long-format alpha diversity tables)
+library(colorspace) # Adjusts and standardizes color brightness and contrast for consistent figure aesthetics
+library(svglite)    # Enables high-quality SVG output suitable for vector editing and publication
+library(dplyr)      # Data manipulation framework used for filtering, grouping, summarizing, and table construction
+library(pheatmap)   # Generates heatmaps for optional beta-diversity or distance-matrix visualizations
+library(ggvenn)     # Draws Venn diagrams to visualize shared and unique taxa among lagoons
+library(tibble)
+```
+
+# Loading and Preparing data files and variables
+
+## Load Data
+
+```{r Load phyloseq files, echo=F, include=FALSE}
+#Non-nomalized data
+load(file = "OutputData/RData/GuanicaGeobio_Arch_050525.RData")
+load(file = "OutputData/RData/GuanicaGeobio_Bac_050525.RData")
+load(file = "OutputData/RData/GuanicaGeobio_Arch_Bac_050525.RData")
+
+#Normalized data
+load(file = "OutputData/RData/GuanicaGeobio_Arch_Bac_norm_050525.RData")
+load(file = "OutputData/RData/GuanicaGeobio_Bac_norm_050525.RData")
+load(file = "OutputData/RData/GuanicaGeobio_Arch_norm_050525.RData")
+
+#For Venn Diagram
+melt_file_list <- readRDS("OutputData/RData/PE_GuanicaGeobio_Arch_Bac_merged_rel_melt_SLayer.RDS")
+
+Arch_Bac_merged_rel_melt <- melt_file_list$Arch_Bac_merged_rel_melt_SLayer
+Arch_merged_rel_melt <- melt_file_list$Arch_merged_rel_melt_SLayer
+Bac_merged_rel_melt <- melt_file_list$Arch_Bac_merged_rel_melt_SLayer
+
+
+```
+
+## Variables for the statistical analysis
+
+```{r}
+# Define the desired sample order
+sample_order_All <- c("POE1-gc", "POE1-g", "POE1-R", "POE1-B", 
+                       "JB-C", "JB-g", "JB-DP", "JB-B", 
+                      "PS-C1", "PS-C2", "PS-Br", "PS-L", "PS-Bottom")
+
+# Ensure the Stromatolite_Layer column is a factor with the desired levels
+Arch_Bac@sam_data$Sample_Layer <- factor(Arch_Bac@sam_data$Sample_Layer, levels = sample_order_All)
+
+
+```
+
+
+
+# Alpha Diversity
+
+## Alpha Diversity Calculations
+
+```{r Calculations}
+
+
+# Calculate alpha diversity metrics (Observed, Shannon, Simpson)
+alpha_div_Bac <- estimate_richness(Arch_Bac, measures = c("Observed", "Shannon", "Simpson"))
+sample_metadata <- sample_data(Arch_Bac)
+
+alpha_div_Bac$Sample <- rownames(alpha_div_Bac)
+alpha_div_Bac <- merge(alpha_div_Bac, sample_metadata, by.x = "Sample", by.y = "row.names")
+
+
+# Add a column for the main sample group (e.g., "PO_C3", "PO_E1", "JB", "PS")
+# Modify the name of this column if needed
+alpha_div_Bac$Sample_name <- factor(alpha_div_Bac$Sample_name, levels = c("POC3", "POE1", "JB", "PS"))
+
+
+```
+
+## Tables for Publication
+
+```{r Table for paper}
+
+# Summarize alpha diversity metrics by Sample_name
+alpha_summary <- alpha_div_Bac %>%
+  group_by(Sample_Layer) %>%
+  summarise(
+    Observed_mean = mean(Observed), Observed_sd = sd(Observed),
+    Shannon_mean = mean(Shannon), Shannon_sd = sd(Shannon),
+    Simpson_mean = mean(Simpson), Simpson_sd = sd(Simpson),
+  )
+
+# Round numeric columns only
+alpha_summary[, -1] <- round(alpha_summary[, -1], 2)
+
+# View table
+print(alpha_summary)
+
+
+# Optional: Save to CSV
+write.csv(alpha_summary, "OutputData/Statistics/alpha_diversity_summary.csv", row.names = FALSE)
+
+
+
+```
+
+
+## Plotting
+
+```{r Alpha Diversity Plot in Bacteria and Archaea, echo=F, include=F }
+
+# Pivot data for long format to enable faceting
+alpha_long_Bac <- alpha_div_Bac %>%
+  pivot_longer(cols = c("Observed", "Shannon", "Simpson"), names_to = "Metric", values_to = "Value")
+
+
+# Define colors
+colors_To_use <- c("POC3" = "green", "POE1" = "blue", "JB" = "red", "PS" = "purple")
+
+# Create less darker versions for the stroke
+fill_color <- darken(colors_To_use, amount = 0.2)
+Stroke_color <- darken(colors_To_use, amount = 0.5)
+
+# Create the plot
+alpha_plot_Bac <- ggplot(alpha_long_Bac, aes(x = Sample_Layer, y = Value, fill = Sample_name, color = Sample_name)) +
+  geom_boxplot(outlier.size = 0.5) +
+  scale_fill_manual(values = fill_color) +
+  scale_color_manual(values = Stroke_color) +     # Apply stroke colors
+  facet_wrap(~ Metric, scales = "free_y", ncol = 1) +
+  labs(fill = "Sample", color = "Sample") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  ) +
+  xlab("Microbial mat and microbialite samples layers") +
+  ylab("Alpha Diversity") +
+  ggtitle("Alpha Diversity Metrics (Shannon, Observed, Simpson, Chao1)")
+
+# Display
+#ggplotly(alpha_plot_Bac)
+
+alpha_plot_Bac
+
+ggsave(
+  filename = "plots/Statistics/alpha_plot_Bac.tiff",       # File name with .tiff extension
+  plot = alpha_plot_Bac,                 # The plot object to save
+  width = 6,                             # Width in inches
+  height = 10,                            # Height in inches
+  dpi = 300                              # Resolution (300 dpi for high-quality print)
+)
+
+
+```
+
+
+# Beta Diversity
+
+## Bray-Curtis distance
+
+```{r Bray-Curtis distance}
+
+# Calculate Bray-Curtis distance
+bray_dist_Bac <- phyloseq::distance(Arch_Bac_norm, method = "bray")
+
+# Perform PCoA ordination
+ordination_Bac <- ordinate(Arch_Bac, method = "PCoA", distance = bray_dist_Bac)
+
+# Extract eigenvalues and % variance explained
+eig_vals <- ordination_Bac$values$Eigenvalues
+var_explained <- eig_vals / sum(eig_vals)
+axis1_pct <- round(100 * var_explained[1], 1)
+axis2_pct <- round(100 * var_explained[2], 1)
+
+# Extract ordination data with metadata
+ordination_df <- as.data.frame(ordination_Bac$vectors)
+ordination_df$SampleID <- rownames(ordination_df)
+ordination_df <- merge(
+  ordination_df,
+  as.data.frame(sample_data(Arch_Bac_norm)),
+  by.x = "SampleID",
+  by.y = "row.names"
+)
+
+# Define custom shape values (13 unique shapes)
+shape_values <- c(
+  "POE1-gc" = 0, "POE1-g" = 1, "POE1-R" = 2, "POE1-B" = 3,
+  "JB-C" = 4, "JB-g" = 5, "JB-DP" = 6, "JB-B" = 7,
+  "PS-C1" = 8, "PS-C2" = 9, "PS-Br" = 10, "PS-L" = 13, "PS-Bottom" = 12
+)
+
+# Create the plot
+Beta_div_Bac_PCoA <- ggplot(ordination_df, aes(x = Axis.1, y = Axis.2)) +
+  geom_point(aes(color = Sample_name, shape = Sample_Layer), size = 3) +
+  stat_ellipse(aes(color = Sample_name), type = "norm", linetype = "dashed") +
+  scale_shape_manual(values = shape_values) +
+  ggtitle("PCoA Plot (Bray-Curtis)") +
+  theme_classic() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    legend.title = element_blank(),
+    plot.title = element_text(hjust = 0.5)
+  ) +
+  labs(
+    x = paste0("PCoA Axis 1 (", axis1_pct, "%)"),
+    y = paste0("PCoA Axis 2 (", axis2_pct, "%)")
+  )
+
+Beta_div_Bac_PCoA
+# Display the plot
+
+# Save as SVG for Illustrator
+ggsave(
+  filename = "plots/Statistics/Beta_div_Bac_PCoA.svg",
+  plot = Beta_div_Bac_PCoA,
+  width = 8,
+  height = 6
+)
+
+```
+
+## PERMANOVA Analysis
+
+```{r PERMANOVA, include=T, echo=T}
+# Extract sample metadata for grouping
+metadata_Bac <- as(sample_data(Arch_Bac_norm), "data.frame")
+
+# Perform PERMANOVA
+permanova_Bac <- adonis2(bray_dist_Bac ~ Sample_name, data = metadata_Bac, permutations = 999)
+
+# Extract and format PERMANOVA results into a table
+summary_table <- as.data.frame(permanova_Bac) %>%
+  rownames_to_column(var = "Source") %>%
+  mutate(
+    Component = SumOfSqs / sum(SumOfSqs),   # Variance component
+    Var = SumOfSqs / Df,                   # Variance
+    SD = sqrt(Var)                         # Standard deviation
+  )
+
+# Rename columns for clarity
+colnames(summary_table) <- c("Source", "Df", "SS", "MS", "Pseudo F", "p-value", "Component", "Var", "SD")
+
+# View the table
+print(summary_table)
+
+# Save the table to a CSV for your paper
+write.csv(summary_table, "OutputData/Statistics/PERMANOVA_summary_detailed_norm.csv", row.names = FALSE)
+
+cat("Detailed PERMANOVA summary saved to 'PERMANOVA_summary_detailed_norm.csv'")
+```
+
+## Unifrac Analysis (NOT USED)
+
+
+```{r unifrac analysis}
+
+# Calculate Bray-Curtis distance
+unifrac_dist <- phyloseq::distance(Arch_Bac_norm, method = "unifrac")
+
+# Compute hierarchical clustering
+hclust_unifrac <- hclust(as.dist(unifrac_dist), method = "average")  # UPGMA
+
+# Plot dendrogram
+plot(hclust_unifrac, main = "Hierarchical Clustering of Samples (UniFrac)", xlab = "", sub = "")
+
+
+
+# Convert distance matrix to matrix
+dist_matrix <- as.matrix(unifrac_dist)
+
+# Plot heatmap
+pheatmap(dist_matrix, clustering_method = "average", main = "UniFrac Distance Heatmap")
+
+
+```
+
+## Aitchison Analysis (NOT USED)
+
+
+```{r aitchison analysis}
+library(compositions)
+
+# Extract OTU table from phyloseq
+otu_mat <- as(otu_table(Arch_Bac_norm), "matrix")
+
+# If taxa are rows and samples are columns, transpose
+if (taxa_are_rows(Arch_Bac_norm)) {
+  otu_mat <- t(otu_mat)
+}
+
+# Add pseudocount (e.g., 0.5)
+otu_mat_nozeros <- otu_mat
+otu_mat_nozeros[otu_mat_nozeros == 0] <- 0.5
+
+
+
+
+# Perform CLR transformation
+otu_clr <- clr(otu_mat_nozeros)
+
+
+aitchison_dist <- dist(otu_clr, method = "euclidean")
+
+
+# Classical multidimensional scaling
+aitchison_pcoa <- cmdscale(aitchison_dist, k = 2, eig = TRUE)
+
+# Extract coordinates
+ordination_df <- as.data.frame(aitchison_pcoa$points)
+colnames(ordination_df) <- c("Axis.1", "Axis.2")
+ordination_df$SampleID <- rownames(ordination_df)
+
+# Merge metadata
+metadata_df <- data.frame(as(sample_data(Arch_Bac_norm), "data.frame"))
+ordination_df <- merge(ordination_df, metadata_df, by.x = "SampleID", by.y = "row.names")
+
+
+
+
+p_aitchison <- ggplot(ordination_df, aes(x = Axis.1, y = Axis.2, color = Sample_name)) +
+  geom_point(size = 3) +
+  stat_ellipse(type = "norm", linetype = "dashed") +
+  ggtitle("PCoA on Aitchison Distance (CLR-Euclidean)") +
+  theme_classic() +
+  theme(
+    legend.title = element_blank(),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+print(p_aitchison)
+
+
+```
+
+
+# Venn Diagram
+
+
+## Splitting Data by sample
+Splitting Data by Sample_name summarizing abundance data at each taxonomic level and sorting abundance in descending order. 
+```{r split data by sample layer}
+Arch_merged_rel_melt_group <- Arch_merged_rel_melt %>% dplyr::group_by(Sample_name, OTU, Phylum, Class, Order, Family, Genus) %>% dplyr::summarize(Rel_Abund = sum(RelAbund), Rel_Abund_SD = sd(RelAbund)) %>% arrange(desc(Rel_Abund))
+
+Bac_merged_rel_melt_group <- Bac_merged_rel_melt %>% dplyr::group_by(Sample_name, OTU, Phylum, Class, Order, Family, Genus) %>% dplyr::summarize(Rel_Abund = sum(RelAbund), Rel_Abund_SD = sd(RelAbund)) %>% arrange(desc(Rel_Abund))
+
+Arch_Bac_merged_rel_melt_group <- Arch_Bac_merged_rel_melt %>% dplyr::group_by(Sample_name, OTU, Phylum, Class, Order, Family, Genus) %>% dplyr::summarize(Rel_Abund = sum(RelAbund), Rel_Abund_SD = sd(RelAbund)) %>% arrange(desc(Rel_Abund))
+
+rm(Arch_merged_rel_melt, Bac_merged_rel_melt, Arch_Bac_merged_rel_melt)
+
+```
+
+
+
+## Filter by name
+
+
+```{r Filter by name}
+# Filter by lagoon and extract unique Genus
+Gen_PO <- Arch_Bac_merged_rel_melt_group %>%
+  filter(Sample_name == "POE1", Rel_Abund > 0, !is.na(OTU)) %>%
+  pull(Genus) %>%
+  unique()
+
+Gen_JB <- Arch_Bac_merged_rel_melt_group %>%
+  filter(Sample_name == "JB", Rel_Abund > 0, !is.na(OTU)) %>%
+  pull(Genus) %>%
+  unique()
+
+Gen_PS <- Arch_Bac_merged_rel_melt_group %>%
+  filter(Sample_name == "PS", Rel_Abund > 0, !is.na(OTU)) %>%
+  pull(Genus) %>%
+  unique()
+
+
+```
+
+## Plot Venn Diagram
+
+```{r Plot}
+
+Genus_list <- list(PO = Gen_PO, JB = Gen_JB, PS = Gen_PS)
+
+venn_plot <- ggvenn(Genus_list, 
+       fill_color = c("blue", "red", "green"), 
+       text_size = 3, 
+       set_name_size = 4)
+
+
+ggsave(
+  filename = "plots/Statistics/venn_plot_PerSample.svg",
+  plot = venn_plot,
+  width = 6,
+  height = 6
+)
+
+
+
+```
+
+
+
+
+
+

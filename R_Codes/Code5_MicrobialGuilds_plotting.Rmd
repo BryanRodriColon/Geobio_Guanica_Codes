@@ -1,0 +1,561 @@
+---
+title: "Code 5: MicrobialGuilds_plotting"
+author: "Bryan Rodriguez-Colon and Yasawantha Hiripitiyage"
+date: "Last udpated: 2025-09-17"
+output: html_document
+---
+
+***Disclaimer: This R Markdown script was originally created by Yasawantha Hiripitiyage and has been adapted to for new data by Bryan Rodriguez Colon with some use of AI (chatGPT-4o & chatGPT-5).***
+
+## Overview
+
+This R Markdown generates manuscript figures summarizing the relative abundance of selected **microbial functional guilds** across samples, primarily grouped by `Sample_Layer`. The workflow uses previously prepared long-format relative abundance tables and aggregates them by taxonomic rank before subsetting taxa into curated functional guilds (e.g., Cyanobacteria, sulfate reducers, methanogens, purple sulfur bacteria, purple non-sulfur bacteria, sulfur oxidizers, and additional optional metabolic groups).
+
+Guild-specific datasets are constructed using taxon-level filters and summarized as relative abundance percentages. The script produces stacked bar plots (family-level fill in the current implementation) with fixed sample ordering and reproducible color palettes to ensure consistency across figures. These visualizations are intended to highlight functional differences among microbial communities across depositional settings (Supplementary Figure S7).
+
+
+
+
+```{r Setup, include=T}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_SciRep_Codes/R_Codes")
+
+```
+
+
+# Loading libraries
+```{r Loading packages, message=F, include=T}
+library(dplyr)        # used for group_by/summarize/arrange/filter/mutate/bind_rows/ungroup %>% pipes
+library(tibble)       # used via add_column()
+library(ggplot2)      # all plotting uses ggplot2
+library(RColorBrewer) # brewer.pal() used to build the combined qualitative palette
+library(cowplot)      # cowplot::get_legend() used to extract legends
+library(tidyr)        # complete() used to fill missing Sample_Layer × Family combos with zeros
+
+```
+
+
+## Stop data displayed in scientific notation
+
+```{r stop scipen}
+options(scipen = 999)
+```
+
+
+
+# Functions
+
+## Helper Function to Extract Legend: 'extract_legend()'
+
+
+
+```{r Helper Function to Extract Legend}
+
+# Function to extract just the legend from a ggplot
+extract_legend <- function(plot) {
+  g <- ggplotGrob(plot)
+  legend_index <- which(sapply(g$grobs, function(x) x$name) == "guide-box")
+  legend <- g$grobs[[legend_index]]
+  return(legend)
+}
+
+```
+
+
+
+# Data
+Reading previously saved melt Data
+```{r load saved melt data}
+melt_file_list <- readRDS("OutputData/RData/PE_GuanicaGeobio_Arch_Bac_merged_rel_melt_SLayer.RDS")
+
+
+
+Arch_Bac_merged_rel_melt <- melt_file_list$Arch_Bac_merged_rel_melt_SLayer
+
+Arch_merged_rel_melt <- melt_file_list$Arch_merged_rel_melt_SLayer
+Bac_merged_rel_melt <- melt_file_list$Bac_merged_rel_melt_SLayer
+rm(melt_file_list)
+```
+
+
+
+# Preparing data
+
+## Splitting Data
+Splitting Data by Sample Layer summarizing abundance data at each taxonomic level and sorting abundance in descending order. 
+```{r split data by sample layer}
+Arch_merged_rel_melt_group <- Arch_merged_rel_melt %>% dplyr::group_by(Sample_Layer, Phylum, Class, Order, Family, Genus, Species) %>% dplyr::summarize(Rel_Abund = sum(RelAbund), Rel_Abund_SD = sd(RelAbund)) %>% arrange(desc(Rel_Abund))
+
+Bac_merged_rel_melt_group <- Bac_merged_rel_melt %>% dplyr::group_by(Sample_Layer, Phylum, Class, Order, Family, Genus, Species) %>% dplyr::summarize(Rel_Abund = sum(RelAbund), Rel_Abund_SD = sd(RelAbund)) %>% arrange(desc(Rel_Abund))
+
+Arch_Bac_merged_rel_melt_group <- Arch_Bac_merged_rel_melt %>% dplyr::group_by(Sample_Layer, Phylum, Class, Order, Family, Genus, Species) %>% dplyr::summarize(Rel_Abund = sum(RelAbund), Rel_Abund_SD = sd(RelAbund)) %>% arrange(desc(Rel_Abund))
+
+rm(Arch_merged_rel_melt, Bac_merged_rel_melt, Arch_Bac_merged_rel_melt)
+
+```
+
+# Subset Data by microbial guilds
+
+## Main Guilds to check
+
+### Subset Cyanobacteria
+
+```{r subset cyanobacteria}
+Cyano <- Arch_Bac_merged_rel_melt_group %>%
+  filter(
+    Phylum == "Cyanobacteriota" |
+    Family %in% c("Cyanobacteriia_Unclassified", "Oscillatoriaceae", "Coleofasciculaceae", "Leptolyngbyaceae", "Cyanobiaceae", "Nodosilineaceae", "Desertifilaceae"),
+    Rel_Abund != 0,
+    Rel_Abund >= 0.5
+  ) %>%
+  add_column(Guild = "Cyanobacteria")
+
+Cyano
+```
+
+### Subset Purple non-sulfur bacteria (PNSB)
+```{r subset purple non sulf bac}
+
+
+pnsb_genera <- c(
+  "Rhodovulum",
+  "Rhodovibrio",
+  "Rhodothalassium",
+  "Rhodobacter",
+  "Rhodopseudomonas",
+  "Rhodospirillum",
+  "Rhodomicrobium",
+  "Rhodoplanes",
+  "Rhodocista",
+  "Rhodobium",
+  "Blastochloris",
+  "Rhodobaca",
+  "Roseospira",
+  "Roseospirillum",
+  "Phaeospirillum",
+  "Rhodopila",
+  "Rhodospira",
+  "Rhodoblastus",
+  "Caenispirillum"
+)
+
+# Filter ONLY these genera, not whole families or orders
+PNSB <- Arch_Bac_merged_rel_melt_group %>%
+  filter(
+    Genus %in% pnsb_genera,
+    Rel_Abund != 0,
+    Rel_Abund >= 0.5
+  ) %>%
+  mutate(Guild = "Purple Non-Sulfur Bacteria")
+PNSB
+
+```
+
+
+
+### Sulfate Reducing Bacteria (SRB)
+
+```{r subset SRB}
+
+srb_families <- c(
+  "Desulfovibrionaceae", "Desulfobacteraceae", "Desulfohalobiaceae",
+  "Desulfobulbaceae", "Desulfotomaculaceae", "Thermodesulfobacteriaceae",
+  "Archaeoglobaceae", "Desulfitibacteraceae", "Desulfomonilaceae",
+  "Desulfatibacillaceae", "Desulfarculaceae", "Desulfococcaceae",
+  "Syntrophobacteraceae", "Desulfobaccaceae", "Desulfatirhabdiaceae", "Desulfatiglandaceae", "Desulfosarcinaceae", "Desulfomonilales", "Desulfobacterales"
+)
+
+
+
+SRB <- Arch_Bac_merged_rel_melt_group %>%
+  filter(Family %in% srb_families & Rel_Abund != 0, Rel_Abund >= 0.5) %>%
+  add_column(Guild = "Sulfate Reducing")
+SRB
+
+
+```
+
+### Subset Methanogens
+
+```{r subset methanogens}
+
+methanogen_families <- c(
+  "Methanosarcinaceae", "Methanomassiliicoccaceae", "Methanobacteriaceae",
+  "Methanococcaceae", "Methanocaldococcaceae", "Methanomicrobiaceae",
+  "Methanosaetaceae", "Methanoregulaceae", "Methanotrichaceae",
+  "Methanofastidiosales_Unclassified", "Methanonatronarchaeaceae",
+  "Methanobacteriota_Unclassified"
+)
+
+MET <- Arch_Bac_merged_rel_melt_group %>%
+  filter(Family %in% methanogen_families & Rel_Abund != 0, Rel_Abund >= 0.5) %>%
+  add_column(Guild = "Methanogens")
+MET
+
+```
+
+
+## Other Optional Guilds
+
+### Subset Green non-sulfur Bacteria (GNSB)
+
+```{r subset green non-sulfur bac}
+#### Green Non-Sulfur Bacteria (GNSB)
+
+gnsb_genera <- c("Chloroflexus", "Roseiflexus", "Oscillochloris", "Herpetosiphon")
+
+GNSB <- Arch_Bac_merged_rel_melt_group %>%
+  filter(
+    Genus %in% gnsb_genera |
+    Order %in% c("Chloroflexales", "Herpetosiphonales") |
+    Family %in% c("Chloroflexaceae", "Anaerolineaceae", "Thermoflexaceae", "Caldilineaceae", "Acetothermiia_Unclassified", "Chloroflexota_Unclassified"),
+    Rel_Abund != 0,
+    Rel_Abund >= 0.5
+  ) %>%
+  mutate(Guild = "Green Non-Sulfur Bacteria")
+GNSB
+```
+
+
+### Subset Purple Sulfur bacteria (PSB)
+```{r subset purple sulfer bac}
+#### Purple Sulfur Bacteria (PSB)
+
+psb_genera <- c(
+  "Allochromatium", "Amoebobacter", "Chromatium", "Halochromatium", 
+  "Isochromatium", "Lamprocystis", "Lamprobacter", "Marichromatium", 
+  "Rhabdochromatium", "Thermochromatium", "Thioalkalicoccus", "Thiobaca", 
+  "Thiocapsa", "Thiococcus", "Thiocystis", "Thiodictyon", "Thioflavicoccus", 
+  "Thiohalocapsa", "Thiolamprovum", "Thiopedia", "Thiorhodococcus", 
+  "Thiorhodovibrio", "Thiospirillum", "Halorhodospira", "Thiorhodospira", 
+  "Ectothiorhodosinus"
+)
+
+PSB <- Arch_Bac_merged_rel_melt_group %>%
+  filter(
+    Genus %in% psb_genera,
+    Rel_Abund != 0,
+    Rel_Abund >= 0.5
+  ) %>%
+  mutate(Guild = "Purple Sulfur Bacteria")
+PSB
+
+```
+
+
+### Subset Sulfur Oxidizers (SOx)
+
+```{r subset sulfur oxidizers}
+
+
+sox_genera <- c(
+  "Thiomicrospira", "Beggiatoa", "Thiothrix", "Thiomargarita", 
+  "Thioalkalivibrio", "Thiomonas", "Paracoccus", "Sulfitobacter", 
+  "Sulfurovum", "Sulfurimonas", "Thiobacillus", "Acidithiobacillus", 
+  "Halothiobacillus", "Thioalkalicoccus", "Thiohalospira",
+  "Guyparkeria", "Thiomicrohabdus", "Thiohalophilus",
+  "Candidatus Allobeggiatoa"
+)
+
+SOx <- Bac_merged_rel_melt_group %>%
+  filter(
+    Genus %in% sox_genera |
+    Genus %in% psb_genera,
+    Rel_Abund != 0,
+    Rel_Abund >= 0.5
+  ) %>%
+  mutate(Guild = "Sulfur Oxidizers")
+SOx
+
+```
+
+
+### Subset Iron Reducers (FeR)
+```{r subset iron reducers}
+#### Iron Reducers
+
+iron_reducer_families <- c("Geobacteraceae", "Desulfuromonadales_Unclassified")
+
+FeR <- Bac_merged_rel_melt_group %>%
+  filter(Family %in% iron_reducer_families & Rel_Abund != 0, Rel_Abund >= 0.5) %>%
+  mutate(Guild = "Iron Reducers")
+FeR
+```
+
+### Subset Ammonia Oxidizers (NH3Ox)
+
+
+```{r subset Ammonia Oxidizers}
+
+nitrogen_AmmoniaOx_families <- c("Nitrosococcaceae", "Nitrososphaeraceae", "Nitrococcaceae")
+
+NH3Ox <- Arch_Bac_merged_rel_melt_group %>%
+  filter(Family %in% nitrogen_AmmoniaOx_families & Rel_Abund != 0, Rel_Abund >= 0.5) %>%
+  mutate(Guild = "Ammonia Oxidizers")
+NH3Ox
+```
+
+### Subset Denitrifiers (DEN)
+
+```{r subset denitrifiers}
+#### Denitrifiers
+
+denitrifier_genera <- c("Achromobacter", "Aerobacter", "Alcaligenes", "Arcobacter", "Aromatoleum", "Azoarcus", "Bacillus", "Castellaniella", "Comamonas", "Curvibacter", "Dechloromonas", "Enterobacter", "Flavobacterium", "Georgfuchsia", "Hyphomicrobium", "Meganema", "Methylobacillus", "Methylophilus", "Micrococcus", "Paracoccus", "Proteus", "Pseudomonas", "Rhodobacter", "Rhodococcus", "Serratia", "Simplicispira", "Sulfuritalea", "Thauera", "Thiobacillus")
+
+DEN <- Bac_merged_rel_melt_group %>%
+  filter(Genus %in% denitrifier_genera & Rel_Abund != 0, Rel_Abund >= 0.5) %>%
+  mutate(Guild = "Denitrifiers") 
+DEN
+```
+
+
+### Subset Nitrogen Fixers (NFix)
+
+```{r subset nitrogen fixers}
+#### Nitrogen Fixers
+
+nitrogen_fixing_genera <- c("Azospirillum", "Azotobacter", "Beijerinckia", "Bradyrhizobium", "Clostridium", "Frankia", "Klebsiella", "Mesorhizobium", "Nostoc", "Rhizobium", "Anabaena", "Desulfovibrio", "Calothrix")
+
+NFix <- Bac_merged_rel_melt_group %>%
+  filter(Genus %in% nitrogen_fixing_genera & Rel_Abund != 0, Rel_Abund >= 0.5) %>%
+  mutate(Guild = "Nitrogen Fixers")
+NFix
+```
+
+
+### Subset Aerobic Heterotrophs (AHET)
+
+
+```{r subset aerobic heterotrophs}
+#### Strictly Aerobic Heterotrophs
+
+aerobic_heterotrophs_genera <- c("Pseudomonas", "Flavobacterium", "Alteromonas", "Vibrio", "Shewanella", "Myxococcus", "Sphingomonas", "Roseobacter")
+
+AHET <- Bac_merged_rel_melt_group %>%
+  filter(Genus %in% aerobic_heterotrophs_genera & Rel_Abund != 0, Rel_Abund >= 0.5) %>%
+  mutate(Guild = "Strictly Aerobic Heterotrophs")
+AHET
+```
+
+### Subset Methanotrophs
+```{r subset methanotrophs}
+
+#### Methanotrophs
+
+methanotroph_genera <- c("Methylomonas", "Methylococcus", "Methylobacter", "Methylocystis", "Methylocapsa")
+
+Methanotrophs <- Bac_merged_rel_melt_group %>%
+  filter(Genus %in% methanotroph_genera & Rel_Abund != 0) %>%
+  mutate(Guild = "Methanotrophs")
+Methanotrophs
+```
+
+
+
+
+
+# Plotting
+
+## Prepare for plotting
+Setting ggplot2 theme
+```{r set ggplot2 theme}
+theme_set(theme_bw(base_size = 14))
+```
+
+Combining All Guilds
+```{r combine alll guilds}
+All_Guilds <- bind_rows(list(MET, SRB, Cyano, PSB, PNSB, GNSB, SOx, NH3Ox, DEN, AHET))
+
+All_Guilds
+
+```
+
+
+Removing groups
+```{r remove groups}
+
+All_Guilds_ungroup <- ungroup(All_Guilds)
+```
+
+## Plotting by sample layer
+
+
+```{r}
+# Get unique genera or family, sorted for consistency
+unique_GF <- sort(unique(All_Guilds_ungroup$Family))
+
+# Combine multiple qualitative palettes
+base_colors <- c(
+  brewer.pal(9, "Set1"),
+  brewer.pal(8, "Set2"),
+  brewer.pal(8, "Dark2"),
+  brewer.pal(12, "Paired")
+)
+
+# Expand as needed
+color_GF_palette <- colorRampPalette(base_colors)(length(unique_GF))
+
+# Name each color by genus (important!)
+names(color_GF_palette) <- unique_GF
+
+
+
+```
+
+The code below is to plot the figure
+```{r good plot}
+
+
+# Sample layer order
+sample_order_All <- c("PS-Bottom", "PS-L", "PS-Br", "PS-C2", "PS-C1", 
+                      "JB-B", "JB-DP", "JB-g", "JB-C", 
+                      "POE1-B", "POE1-R", "POE1-g", "POE1-gc")
+
+# Factor Sample_Layer
+All_Guilds_ungroup$Sample_Layer <- factor(All_Guilds_ungroup$Sample_Layer, levels = sample_order_All)
+
+# Filter out families with <0.4% mean relative abundance
+All_Guilds_ungroup <- All_Guilds_ungroup %>%
+  group_by(Family) %>%
+  filter(mean(Rel_Abund, na.rm = TRUE) >= 0) %>%
+  ungroup()
+
+# Set Family factor levels using the color palette
+All_Guilds_ungroup$Family <- factor(All_Guilds_ungroup$Family, levels = names(color_GF_palette))
+
+# Loop over guilds
+guilds <- unique(All_Guilds_ungroup$Guild)
+
+for (g in guilds) {
+  guild_df <- All_Guilds_ungroup %>%
+    filter(Guild == g) %>%
+    complete(Sample_Layer = factor(sample_order_All, levels = sample_order_All),
+             Family = factor(levels(All_Guilds_ungroup$Family)),
+             fill = list(Rel_Abund = 0))
+
+  # Build plot with legend
+  p_full <- ggplot(guild_df, aes(x = Sample_Layer, y = Rel_Abund, fill = Family)) +
+    geom_bar(stat = "identity") +
+    coord_flip() +
+    scale_fill_manual(values = color_GF_palette, drop = TRUE) +
+    labs(
+      title = g,
+      x = "Sample Layer",
+      y = "Relative abundance (% of ASVs per sample)"
+    ) +
+    theme_bw(base_size = 14) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      axis.text.x = element_text(size = 10),
+      axis.text.y = element_text(size = 10),
+      legend.position = "right"
+    )
+
+ # Extract guild-specific legend
+  legend_grob <- cowplot::get_legend(p_full)
+
+  # Plot without legend
+  p_nolegend <- p_full + theme(legend.position = "none")
+
+  # Clean guild name for file-safe use
+  file_safe_g <- gsub(" ", "_", g)
+
+  # Save main plot
+  ggsave(
+    filename = paste0("plots/Microbial_Guilds/Family_Level/Fam_guild_", file_safe_g, ".svg"),
+    plot = p_nolegend,
+    width = 11.78,
+    height = 10,
+    units = "in",
+    dpi = 300
+  )
+
+  ggsave(
+    filename = paste0("plots/Microbial_Guilds/Family_Level/Fam_guild_", file_safe_g, ".tiff"),
+    plot = p_nolegend,
+    width = 11.77,
+    height = 10,
+    units = "in",
+    dpi = 600,
+    device = "tiff"
+  )
+  
+}
+```
+
+The code below is to plot the legends 
+```{r good legend}
+
+
+# Define threshold
+abundance_threshold <- 0
+
+# Ensure sample order is set
+sample_order_All <- c("PS-Bottom", "PS-L", "PS-Br", "PS-C2", "PS-C1", 
+                      "JB-B", "JB-DP", "JB-g", "JB-C", 
+                      "POE1-B", "POE1-R", "POE1-g", "POE1-gc")
+All_Guilds_ungroup$Sample_Layer <- factor(All_Guilds_ungroup$Sample_Layer, levels = sample_order_All)
+
+# Set Family factor levels to palette order
+All_Guilds_ungroup$Family <- factor(All_Guilds_ungroup$Family, levels = names(color_GF_palette))
+
+# Get unique guilds
+guilds <- unique(All_Guilds_ungroup$Guild)
+
+# Loop through guilds
+for (g in guilds) {
+  guild_df <- All_Guilds_ungroup %>%
+    filter(Guild == g, Rel_Abund >= abundance_threshold)
+
+  # Set Family factor again to only what's present
+  guild_df$Family <- factor(guild_df$Family, levels = names(color_GF_palette))
+
+  # Create full plot with legend
+  p_full <- ggplot(guild_df, aes(x = Sample_Layer, y = Rel_Abund, fill = Family)) +
+    geom_bar(stat = "identity") +
+    coord_flip() +
+    scale_fill_manual(values = color_GF_palette, drop = TRUE) +
+    labs(
+      title = g,
+      x = "Sample Layer",
+      y = "Relative abundance (% of ASVs per sample)"
+    ) +
+    theme_bw(base_size = 14) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      axis.text.x = element_text(size = 10),
+      axis.text.y = element_text(size = 10),
+      legend.position = "right"
+    )
+
+  # Extract guild-specific legend
+  legend_grob <- cowplot::get_legend(p_full)
+
+  # Remove legend from main plot
+  p_nolegend <- p_full + theme(legend.position = "none")
+
+  # Save plot
+  file_safe_g <- gsub(" ", "_", g)
+  #ggsave(paste0("plots/Microbial_Guilds/Fam_guild_", file_safe_g, ".svg"),
+         #plot = p_nolegend, width = 15, height = 10, units = "in", dpi = 300)
+  #ggsave(paste0("plots/Microbial_Guilds/Fam_guild_", file_safe_g, ".tiff"),
+         #plot = p_nolegend, width = 15, height = 10, units = "in", dpi = 600)
+
+  # Save corresponding legend
+  svglite::svglite(paste0("plots/Microbial_Guilds/Family_Level/Legends/Fam_legend_", file_safe_g, ".svg"),
+                   width = 6, height = 6)
+  grid::grid.draw(legend_grob)
+  dev.off()
+
+  tiff(paste0("plots/Microbial_Guilds/Family_Level/Legends/Fam_legend_", file_safe_g, ".tiff"),
+       width = 6, height = 6, units = "in", res = 600)
+  grid::grid.draw(legend_grob)
+  dev.off()
+}
+
+
+```
+
+
+

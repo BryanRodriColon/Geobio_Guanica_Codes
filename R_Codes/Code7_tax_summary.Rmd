@@ -1,0 +1,251 @@
+---
+title: 'Code 7: taxonomy Summaries'
+author: "Bryan Rodriguez"
+date: "2025-05-16"
+output: html_document
+---
+
+This script uses the prepared melted relative abundance tables, and outputs **Excel files summarizing taxonomy** at different levels (Phylum to Genus) for:
+
+- All Prokaryotes  
+- Bacteria only  
+- Archaea only  
+
+Summaries are generated across three grouping variables:
+
+- `Sample_Layer`
+- `Sample_name`
+- `Sample_Type`
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_SciRep_Codes/R_Codes")
+rm(list = ls())
+
+
+```
+
+
+
+# loading libraries
+```{r load packages, echo=F, include=F}
+# Load required packages
+library(phyloseq)     # For microbiome data structures and manipulation
+library(data.table)   # For efficient data handling
+library(dplyr)        # For data manipulation (e.g., group_by, summarize)
+library(openxlsx)     # To write Excel files
+
+```
+
+
+
+# Functions
+
+## Function: save_complete_taxa_summaries()
+
+Generates and saves detailed Excel summaries of taxonomic composition from a melted relative abundance data frame. It outputs:
+
+One summary file including all taxonomic levels (Phylum to Genus) grouped by a selected metadata variable.
+Separate summary files for each individual taxonomic rank. Files are saved in organized folders by microbial group (e.g., Bacteria, Archaea) and grouping variable (e.g., Sample_name, Sample_Layer).
+
+
+```{r Function to save summary into excel files,echo=F}
+
+save_complete_taxa_summaries <- function(melted_df, taxa_ranks, group_name, group_var, output_dir = "DataSummary") {
+
+  # Ensure the main output directory exists
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+  # Create subdirectory based on group name
+  subfolder_path <- file.path(output_dir, group_name)
+  if (!dir.exists(subfolder_path)) dir.create(subfolder_path, recursive = TRUE)
+
+  # Create a subfolder for the grouping variable
+  grouping_folder <- file.path(subfolder_path, group_var)
+  if (!dir.exists(grouping_folder)) dir.create(grouping_folder, recursive = TRUE)
+
+  # Define the specific ordering for each group_var
+  sample_order <- switch(group_var,
+                         "Sample_Layer" = c("POE1-gc", "POE1-g", "POE1-R", "POE1-B", 
+                                            "JB-C", "JB-g", "JB-DP", "JB-B", 
+                                            "PS-C1", "PS-C2", "PS-Br", "PS-L", "PS-Bottom"),
+                         "Sample_name" = c("POE1", "JB", "PS"),
+                         "Sample_Type" = c("Microbialite", "Microbial_Mat"),
+                         unique(melted_df[[group_var]])  # fallback if no match
+  )
+
+  # Overall Summary Excel
+  cat("Creating Overall Summary Excel for", group_name, "grouped by", group_var, "...\n")
+
+  overall_summary <- melted_df %>%
+    dplyr::group_by(.data[[group_var]], Phylum, Class, Order, Family, Genus) %>%
+    dplyr::summarize(Rel_Abund = sum(RelAbund), Rel_Abund_SD = sd(RelAbund), .groups = "drop") %>%
+    dplyr::arrange(.data[[group_var]], desc(Rel_Abund)) %>%
+    dplyr::filter(Rel_Abund != 0)
+
+  overall_list <- split(overall_summary, overall_summary[[group_var]])
+
+  # Sort the sheets according to the predefined order
+  overall_list <- overall_list[sample_order[sample_order %in% names(overall_list)]]
+
+  overall_wb <- createWorkbook()
+
+  for (p in names(overall_list)) {
+    addWorksheet(overall_wb, sheetName = p)
+    writeData(overall_wb, sheet = p, overall_list[[p]])
+  }
+
+  overall_file <- file.path(grouping_folder, paste0(group_name, "_Summary_by_", group_var, ".xlsx"))
+  saveWorkbook(overall_wb, file = overall_file, overwrite = TRUE)
+  cat("Saved Overall Summary:", overall_file, "\n")
+
+  # Individual Excel Files per Taxonomic Rank
+  cat("Creating Per-Taxonomic Rank Excel Files for", group_name, "grouped by", group_var, "...\n")
+
+  for (taxa_rank in taxa_ranks) {
+
+    summarized_data <- melted_df %>%
+      dplyr::group_by(.data[[group_var]], .data[[taxa_rank]]) %>%
+      dplyr::summarize(Rel_Abund = sum(RelAbund), Rel_Abund_SD = sd(RelAbund), .groups = "drop") %>%
+      dplyr::arrange(.data[[group_var]], desc(Rel_Abund)) %>%
+      dplyr::filter(Rel_Abund != 0)
+
+    taxa_list <- split(summarized_data, summarized_data[[group_var]])
+
+    # Sort the sheets according to the predefined order
+    taxa_list <- taxa_list[sample_order[sample_order %in% names(taxa_list)]]
+
+    wb <- createWorkbook()
+
+    for (p in names(taxa_list)) {
+      addWorksheet(wb, sheetName = p)
+      writeData(wb, sheet = p, taxa_list[[p]])
+    }
+
+    file_name <- file.path(grouping_folder, paste0(group_name, "_Summary_", taxa_rank, "_by_", group_var, ".xlsx"))
+    saveWorkbook(wb, file = file_name, overwrite = TRUE)
+
+    cat("Saved:", file_name, "\n")
+  }
+}
+
+
+
+```
+
+
+```{r To reset data without erasing functions}
+#To reset data without erasing functions
+rm(list = ls()[!sapply(ls(), function(x) is.function(get(x)))])
+```
+
+
+
+# Load Data
+
+```{r}
+#Load data by sample layer
+
+
+SLayer_LIST <- readRDS("OutputData/RData/PE_GuanicaGeobio_Arch_Bac_merged_rel_melt_SLayer.RDS")
+
+Arch_Bac_merged_rel_melt_SLayer <- SLayer_LIST$Arch_Bac_merged_rel_melt_SLayer
+Arch_merged_rel_melt_SLayer <- SLayer_LIST$Arch_merged_rel_melt_SLayer
+Bac_merged_rel_melt_SLayer <- SLayer_LIST$Bac_merged_rel_melt_SLayer
+
+
+#Load Data by Sample name
+SName_LIST <- readRDS("OutputData/RData/PE_GuanicaGeobio_Arch_Bac_merged_rel_melt_SName.RDS")
+
+Arch_Bac_merged_rel_melt_SName <- SName_LIST$Arch_Bac_merged_rel_melt_SName
+Arch_merged_rel_melt_SName <- SName_LIST$Arch_merged_rel_melt_SName
+Bac_merged_rel_melt_SName <- SName_LIST$Bac_merged_rel_melt_SName
+
+#Load data by sample type
+SType_LIST <- readRDS("OutputData/RData/PE_GuanicaGeobio_Arch_Bac_merged_rel_melt_SType.RDS")
+
+Arch_Bac_merged_rel_melt_SType <- SType_LIST$Arch_Bac_merged_rel_melt_SType
+Arch_merged_rel_melt_SType <- SType_LIST$Arch_merged_rel_melt_SType
+Bac_merged_rel_melt_SType <- SType_LIST$Bac_merged_rel_melt_SType
+
+rm(SLayer_LIST, SName_LIST, SType_LIST)
+
+```
+
+
+
+# Taxonomy Summary for Manuscript Results. 
+
+## Define Taxonomic Ranks
+```{r taxonomic Ranks}
+# Define taxonomic ranks to process
+taxa_ranks <- c("Domain","Phylum", "Class", "Order", "Family", "Genus")
+```
+
+
+## Process samples based on Sample_Layer
+```{r Summary based on Sample Layer}
+
+#Run Summary Function and save as excel file
+save_complete_taxa_summaries(Arch_Bac_merged_rel_melt_SLayer, taxa_ranks, group_name = "All_Prokaryotes", group_var = "Sample_Layer")
+
+#Run Summary Function and save as excel file
+save_complete_taxa_summaries(Arch_merged_rel_melt_SLayer, taxa_ranks, group_name = "Archaea", group_var = "Sample_Layer")
+
+#Run Summary Function and save as excel file
+save_complete_taxa_summaries(Bac_merged_rel_melt_SLayer, taxa_ranks, group_name = "Bacteria", group_var = "Sample_Layer")
+
+
+```
+
+
+## Process Samples based on Sample_name
+```{r Summary based on Sample name}
+
+#Run Summary Function and save as excel file
+save_complete_taxa_summaries(Arch_Bac_merged_rel_melt_SName, taxa_ranks, group_name = "All_Prokaryotes", group_var = "Sample_name")
+
+
+#Run Summary Function and save as excel file
+save_complete_taxa_summaries(Arch_merged_rel_melt_SName, taxa_ranks, group_name = "Archaea", group_var = "Sample_name")
+
+
+#Run Summary Function and save as excel file
+save_complete_taxa_summaries(Bac_merged_rel_melt_SName, taxa_ranks, group_name = "Bacteria", group_var = "Sample_name")
+
+
+```
+
+
+## Process Samples based on sample type
+```{r Summary based on Sample type}
+
+#Run Summary Function and all save as excel file
+save_complete_taxa_summaries(Arch_Bac_merged_rel_melt_SType, taxa_ranks, group_name = "All_Prokaryotes", group_var = "Sample_Type")
+
+#Run Summary Function on Archaea and save as excel file
+save_complete_taxa_summaries(Arch_merged_rel_melt_SType, taxa_ranks, group_name = "Archaea", group_var = "Sample_Type")
+
+#Run Summary Function on Bacteria and save as excel file
+save_complete_taxa_summaries(Bac_merged_rel_melt_SType, taxa_ranks, group_name = "Bacteria", group_var = "Sample_Type")
+
+
+print("All taxonomic summaries are stored and ready for the results!")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
