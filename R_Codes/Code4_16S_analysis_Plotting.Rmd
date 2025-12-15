@@ -483,22 +483,22 @@ Plot_ALL_Domain
 
 ```{r Save Domain Plot}
 
-# Convert ggplot to an interactive plotly object 
-plotty_ALL_Domain_interactive <- ggplotly(Plot_ALL_Domain)
-
-# Save as an interactive HTML file
-saveWidget(plotty_ALL_Domain_interactive, "plots/Domain_Level/ALL_Domain_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Domain_Level/ALL_Domain_summary_plot.svg", plot = Plot_ALL_Domain, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Domain_Level/ALL_Domain_summary_plot.tiff", plot = Plot_ALL_Domain, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved")
+# # Convert ggplot to an interactive plotly object 
+# plotty_ALL_Domain_interactive <- ggplotly(Plot_ALL_Domain)
+# 
+# # Save as an interactive HTML file
+# saveWidget(plotty_ALL_Domain_interactive, "plots/Domain_Level/ALL_Domain_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Domain_Level/ALL_Domain_summary_plot.svg", plot = Plot_ALL_Domain, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Domain_Level/ALL_Domain_summary_plot.tiff", plot = Plot_ALL_Domain, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved")
 
 
 
@@ -552,19 +552,19 @@ plotty_ALL_Phylum_interactive
 
 ```{r Save Prokaryote Phylum Plot, echo=T, include=T}
 
-# Save as an interactive HTML file
-saveWidget(plotty_ALL_Phylum_interactive, "plots/Phylum_Level/ALL_Phylum_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as ALL_Phylum_summary_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Phylum_Level/ALL_Phylum_summary_plot.svg", plot = Plot_ALL_Phylum, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as ALL_Phylum_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Phylum_Level/ALL_Phylum_summary_plot.tiff", plot = Plot_ALL_Phylum, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as ALL_Phylum_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_ALL_Phylum_interactive, "plots/Phylum_Level/ALL_Phylum_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as ALL_Phylum_summary_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Phylum_Level/ALL_Phylum_summary_plot.svg", plot = Plot_ALL_Phylum, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as ALL_Phylum_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Phylum_Level/ALL_Phylum_summary_plot.tiff", plot = Plot_ALL_Phylum, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as ALL_Phylum_summary_plot.tiff")
 
 ```
 
@@ -612,19 +612,19 @@ Export Bacteria phylum plots
 
 ```{r Save Bacteria Phylum Plot, echo=F, include=F}
 
-# Save as an interactive HTML file
-saveWidget(plotty_Bac_Phylum_interactive, "plots/Phylum_Level/Bacteria_Phylum_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as Bacteria_Phylumlevel_taxonomy_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Phylum_Level/Bacteria_Phylum_summary_plot.svg", plot = Plot_Bac_Phylum, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as Bacteria_Phylum_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Phylum_Level/Bacteria_Phylum_summary_plot.tiff", plot = Plot_Bac_Phylum, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as Bacteria_Phylum_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_Bac_Phylum_interactive, "plots/Phylum_Level/Bacteria_Phylum_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as Bacteria_Phylumlevel_taxonomy_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Phylum_Level/Bacteria_Phylum_summary_plot.svg", plot = Plot_Bac_Phylum, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as Bacteria_Phylum_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Phylum_Level/Bacteria_Phylum_summary_plot.tiff", plot = Plot_Bac_Phylum, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as Bacteria_Phylum_summary_plot.tiff")
 
 ```
 
@@ -671,19 +671,19 @@ Export Archaea phylum plots
 
 ```{r Save Archaea Phylum Plot, echo=F, include=F}
 
-# Save as an interactive HTML file
-saveWidget(plotty_Arch_Phylum_interactive, "plots/Phylum_Level/Archaea_Phylum_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as Archaea_Phylum_summary_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Phylum_Level/Archaea_Phylum_summary_plot.svg", plot = Plot_Arch_Phylum, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as Archaea_Phylum_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Phylum_Level/Archaea_Phylum_summary_plot.tiff", plot = Plot_Arch_Phylum, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as Archaea_Phylum_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_Arch_Phylum_interactive, "plots/Phylum_Level/Archaea_Phylum_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as Archaea_Phylum_summary_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Phylum_Level/Archaea_Phylum_summary_plot.svg", plot = Plot_Arch_Phylum, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as Archaea_Phylum_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Phylum_Level/Archaea_Phylum_summary_plot.tiff", plot = Plot_Arch_Phylum, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as Archaea_Phylum_summary_plot.tiff")
 
 ```
 
@@ -730,19 +730,19 @@ Export Prokaryotes class plots
 
 ```{r Save ALL Class Plot, echo=T, include=T}
 
-# Save as an interactive HTML file
-saveWidget(plotty_ALL_Class_interactive, "plots/Class_Level/Prokaryote_Class_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as Prokaryote_Class_taxonomy_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Class_Level/Prokaryote_Class_summary_plot.svg", plot = Plot_ALL_Class, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as Prokaryote_Class_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Class_Level/Prokaryote_Class_summary_plot.tiff", plot = Plot_ALL_Class, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as Prokaryote_Class_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_ALL_Class_interactive, "plots/Class_Level/Prokaryote_Class_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as Prokaryote_Class_taxonomy_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Class_Level/Prokaryote_Class_summary_plot.svg", plot = Plot_ALL_Class, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as Prokaryote_Class_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Class_Level/Prokaryote_Class_summary_plot.tiff", plot = Plot_ALL_Class, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as Prokaryote_Class_summary_plot.tiff")
 
 ```
 
@@ -788,19 +788,19 @@ Export Bacteria class plots
 
 ```{r Save Bac Class Plot, echo=T, include=T}
 
-# Save as an interactive HTML file
-saveWidget(plotty_Bac_Class_interactive, "plots/Class_Level/Bac_Class_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as Bac_Class_taxonomy_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Class_Level/Bac_Class_summary_plot.svg", plot = Plot_Bac_Class, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as Bac_Class_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Class_Level/Bac_Class_summary_plot.tiff", plot = Plot_Bac_Class, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as Bac_Class_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_Bac_Class_interactive, "plots/Class_Level/Bac_Class_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as Bac_Class_taxonomy_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Class_Level/Bac_Class_summary_plot.svg", plot = Plot_Bac_Class, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as Bac_Class_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Class_Level/Bac_Class_summary_plot.tiff", plot = Plot_Bac_Class, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as Bac_Class_summary_plot.tiff")
 
 ```
 
@@ -848,19 +848,19 @@ Export Archaea class plots
 ```{r Save Arch Class Plot, echo=T, include=T}
 
 
-# Save as an interactive HTML file
-saveWidget(plotty_Arch_Class_interactive, "plots/Class_Level/Arch_Class_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as Arch_Class_taxonomy_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Class_Level/Arch_Class_summary_plot.svg", plot = Plot_Arch_Class, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as Arch_Class_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Class_Level/Arch_Class_summary_plot.tiff", plot = Plot_Arch_Class, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as Arch_Class_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_Arch_Class_interactive, "plots/Class_Level/Arch_Class_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as Arch_Class_taxonomy_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Class_Level/Arch_Class_summary_plot.svg", plot = Plot_Arch_Class, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as Arch_Class_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Class_Level/Arch_Class_summary_plot.tiff", plot = Plot_Arch_Class, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as Arch_Class_summary_plot.tiff")
 
 ```
 
@@ -910,19 +910,19 @@ Export Prokaryotes class plots
 
 ```{r Save ALL Order Plot, echo=T, include=T}
 
-# Save as an interactive HTML file
-saveWidget(plotty_ALL_Order_interactive, "plots/Order_Level/Prokaryote_Order_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as Prokaryote_Order_taxonomy_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Order_Level/Prokaryote_Order_summary_plot.svg", plot = Plot_ALL_Order, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as Prokaryote_Order_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Order_Level/Prokaryote_Order_summary_plot.tiff", plot = Plot_ALL_Order, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as Prokaryote_Order_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_ALL_Order_interactive, "plots/Order_Level/Prokaryote_Order_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as Prokaryote_Order_taxonomy_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Order_Level/Prokaryote_Order_summary_plot.svg", plot = Plot_ALL_Order, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as Prokaryote_Order_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Order_Level/Prokaryote_Order_summary_plot.tiff", plot = Plot_ALL_Order, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as Prokaryote_Order_summary_plot.tiff")
 
 ```
 
@@ -969,19 +969,19 @@ Export Bacteria class plots
 
 ```{r Save Bac Order Plot, echo=T, include=T}
 
-# Save as an interactive HTML file
-saveWidget(plotty_Bac_Order_interactive, "plots/Order_Level/Bac_Order_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as Bac_Order_taxonomy_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Order_Level/Bac_Order_summary_plot.svg", plot = Plot_Bac_Order, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as Bac_Order_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Order_Level/Bac_Order_summary_plot.tiff", plot = Plot_Bac_Order, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as Bac_Order_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_Bac_Order_interactive, "plots/Order_Level/Bac_Order_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as Bac_Order_taxonomy_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Order_Level/Bac_Order_summary_plot.svg", plot = Plot_Bac_Order, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as Bac_Order_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Order_Level/Bac_Order_summary_plot.tiff", plot = Plot_Bac_Order, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as Bac_Order_summary_plot.tiff")
 
 ```
 
@@ -1029,19 +1029,19 @@ Export Archaea Order plots
 
 ```{r Save Arch Order Plot, echo=T, include=T}
 
-# Save as an interactive HTML file
-saveWidget(plotty_Arch_Order_interactive, "plots/Order_Level/Arch_Order_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as Arch_Order_taxonomy_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Order_Level/Arch_Order_summary_plot.svg", plot = Plot_Arch_Order, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as Arch_Order_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Order_Level/Arch_Order_summary_plot.tiff", plot = Plot_Arch_Order, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as Arch_Order_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_Arch_Order_interactive, "plots/Order_Level/Arch_Order_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as Arch_Order_taxonomy_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Order_Level/Arch_Order_summary_plot.svg", plot = Plot_Arch_Order, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as Arch_Order_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Order_Level/Arch_Order_summary_plot.tiff", plot = Plot_Arch_Order, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as Arch_Order_summary_plot.tiff")
 
 ```
 
@@ -1093,19 +1093,19 @@ plotty_ALL_Family_interactive
 
 ```{r Save Prokaryote Family Plot, echo=T, include=T}
 
-# Save as an interactive HTML file
-saveWidget(plotty_ALL_Family_interactive, "plots/Family_Level/ALL_Family_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Family_Level/ALL_Family_summary_plot.svg", plot = Plot_ALL_Family, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Family_Level/ALL_Family_summary_plot.tiff", plot = Plot_ALL_Family, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved")
+# # Save as an interactive HTML file
+# saveWidget(plotty_ALL_Family_interactive, "plots/Family_Level/ALL_Family_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Family_Level/ALL_Family_summary_plot.svg", plot = Plot_ALL_Family, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Family_Level/ALL_Family_summary_plot.tiff", plot = Plot_ALL_Family, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved")
 
 ```
 
@@ -1152,19 +1152,19 @@ Export Bacteria Family plots
 
 ```{r Save Bac Family Plot, echo=T, include=T}
 
-# Save as an interactive HTML file
-saveWidget(plotty_Bac_Family_interactive, "plots/Family_Level/Bac_Family_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as Bac_Family_taxonomy_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Family_Level/Bac_Family_summary_plot.svg", plot = Plot_Bac_Family, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as Bac_Family_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Family_Level/Bac_Family_summary_plot.tiff", plot = Plot_Bac_Family, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as Bac_Family_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_Bac_Family_interactive, "plots/Family_Level/Bac_Family_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as Bac_Family_taxonomy_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Family_Level/Bac_Family_summary_plot.svg", plot = Plot_Bac_Family, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as Bac_Family_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Family_Level/Bac_Family_summary_plot.tiff", plot = Plot_Bac_Family, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as Bac_Family_summary_plot.tiff")
 
 ```
 
@@ -1213,19 +1213,19 @@ Export Archaea Family plots
 
 ```{r Save Arch Family Plot, echo=T, include=T}
 
-# Save as an interactive HTML file
-saveWidget(plotty_Arch_Family_interactive, "plots/Family_Level/Arch_Family_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as Arch_Family_taxonomy_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Family_Level/Arch_Family_summary_plot.svg", plot = Plot_Arch_Family, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as Arch_Family_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Family_Level/Arch_Family_summary_plot.tiff", plot = Plot_Arch_Family, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as Arch_Family_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_Arch_Family_interactive, "plots/Family_Level/Arch_Family_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as Arch_Family_taxonomy_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Family_Level/Arch_Family_summary_plot.svg", plot = Plot_Arch_Family, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as Arch_Family_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Family_Level/Arch_Family_summary_plot.tiff", plot = Plot_Arch_Family, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as Arch_Family_summary_plot.tiff")
 
 ```
 
@@ -1274,19 +1274,19 @@ plotty_ALL_Genus_interactive
 
 ```{r Save Prokaryote Genus Plot, echo=T, include=T}
 
-# Save as an interactive HTML file
-saveWidget(plotty_ALL_Genus_interactive, "plots/Genus_Level/ALL_Genus_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Genus_Level/ALL_Genus_summary_plot.svg", plot = Plot_ALL_Genus, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as ALL_Genus_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Genus_Level/ALL_Genus_summary_plot.tiff", plot = Plot_ALL_Genus, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as ALL_Genus_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_ALL_Genus_interactive, "plots/Genus_Level/ALL_Genus_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Genus_Level/ALL_Genus_summary_plot.svg", plot = Plot_ALL_Genus, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as ALL_Genus_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Genus_Level/ALL_Genus_summary_plot.tiff", plot = Plot_ALL_Genus, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as ALL_Genus_summary_plot.tiff")
 
 ```
 
@@ -1336,19 +1336,19 @@ Export Bacteria Genus plots
 
 ```{r Save Bac Genus Plot, echo=T, include=T}
 
-# Save as an interactive HTML file
-saveWidget(plotty_Bac_Genus_interactive, "plots/Genus_Level/Bac_Genus_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as Bac_Genus_taxonomy_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Genus_Level/Bac_Genus_summary_plot.svg", plot = Plot_Bac_Genus, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as Bac_Genus_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Genus_Level/Bac_Genus_summary_plot.tiff", plot = Plot_Bac_Genus, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as Bac_Genus_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_Bac_Genus_interactive, "plots/Genus_Level/Bac_Genus_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as Bac_Genus_taxonomy_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Genus_Level/Bac_Genus_summary_plot.svg", plot = Plot_Bac_Genus, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as Bac_Genus_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Genus_Level/Bac_Genus_summary_plot.tiff", plot = Plot_Bac_Genus, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as Bac_Genus_summary_plot.tiff")
 
 ```
 
@@ -1398,19 +1398,19 @@ Export Archaea Genus plots
 
 ```{r Save Arch Genus Plot, echo=T, include=T}
 
-# Save as an interactive HTML file
-saveWidget(plotty_Arch_Genus_interactive, "plots/Genus_Level/Arch_Genus_summary_plot.html", selfcontained = T, libdir = NULL)
-print("Interactive HTML file saved as Arch_Genus_taxonomy_plot.html")
-
-
-# Save as SVG (for Illustrator editing)
-ggsave(filename = "plots/Genus_Level/Arch_Genus_summary_plot.svg", plot = Plot_Arch_Genus, device = "svg", width = 13, height = 5, dpi = 300)
-print("SVG file saved as Arch_Genus_summary_plot.svg")
-
-
-# Save as TIFF (high-resolution for publication)
-ggsave(filename = "plots/Genus_Level/Arch_Genus_summary_plot.tiff", plot = Plot_Arch_Genus, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-print("TIFF file saved as Arch_Genus_summary_plot.tiff")
+# # Save as an interactive HTML file
+# saveWidget(plotty_Arch_Genus_interactive, "plots/Genus_Level/Arch_Genus_summary_plot.html", selfcontained = T, libdir = NULL)
+# print("Interactive HTML file saved as Arch_Genus_taxonomy_plot.html")
+# 
+# 
+# # Save as SVG (for Illustrator editing)
+# ggsave(filename = "plots/Genus_Level/Arch_Genus_summary_plot.svg", plot = Plot_Arch_Genus, device = "svg", width = 13, height = 5, dpi = 300)
+# print("SVG file saved as Arch_Genus_summary_plot.svg")
+# 
+# 
+# # Save as TIFF (high-resolution for publication)
+# ggsave(filename = "plots/Genus_Level/Arch_Genus_summary_plot.tiff", plot = Plot_Arch_Genus, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+# print("TIFF file saved as Arch_Genus_summary_plot.tiff")
 
 ```
 

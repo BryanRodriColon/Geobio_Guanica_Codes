@@ -453,33 +453,33 @@ for (g in guilds) {
     )
 
  # Extract guild-specific legend
-  legend_grob <- cowplot::get_legend(p_full)
+ # legend_grob <- cowplot::get_legend(p_full)
 
   # Plot without legend
-  p_nolegend <- p_full + theme(legend.position = "none")
+ # p_nolegend <- p_full + theme(legend.position = "none")
 
   # Clean guild name for file-safe use
-  file_safe_g <- gsub(" ", "_", g)
+ # file_safe_g <- gsub(" ", "_", g)
 
   # Save main plot
-  ggsave(
-    filename = paste0("plots/Microbial_Guilds/Family_Level/Fam_guild_", file_safe_g, ".svg"),
-    plot = p_nolegend,
-    width = 11.78,
-    height = 10,
-    units = "in",
-    dpi = 300
-  )
+  #ggsave(
+    #filename = paste0("plots/Microbial_Guilds/Family_Level/Fam_guild_", file_safe_g, ".svg"),
+    #plot = p_nolegend,
+   # width = 11.78,
+   # height = 10,
+   # units = "in",
+   # dpi = 300
+ # )
 
-  ggsave(
-    filename = paste0("plots/Microbial_Guilds/Family_Level/Fam_guild_", file_safe_g, ".tiff"),
-    plot = p_nolegend,
-    width = 11.77,
-    height = 10,
-    units = "in",
-    dpi = 600,
-    device = "tiff"
-  )
+  #ggsave(
+    #filename = paste0("plots/Microbial_Guilds/Family_Level/Fam_guild_", file_safe_g, ".tiff"),
+    #plot = p_nolegend,
+    #width = 11.77,
+    #height = 10,
+    #units = "in",
+    #dpi = 600,
+    #device = "tiff"
+ # )
   
 }
 ```
@@ -530,28 +530,28 @@ for (g in guilds) {
     )
 
   # Extract guild-specific legend
-  legend_grob <- cowplot::get_legend(p_full)
+ # legend_grob <- cowplot::get_legend(p_full)
 
   # Remove legend from main plot
-  p_nolegend <- p_full + theme(legend.position = "none")
+ # p_nolegend <- p_full + theme(legend.position = "none")
 
   # Save plot
-  file_safe_g <- gsub(" ", "_", g)
+ # file_safe_g <- gsub(" ", "_", g)
   #ggsave(paste0("plots/Microbial_Guilds/Fam_guild_", file_safe_g, ".svg"),
          #plot = p_nolegend, width = 15, height = 10, units = "in", dpi = 300)
   #ggsave(paste0("plots/Microbial_Guilds/Fam_guild_", file_safe_g, ".tiff"),
          #plot = p_nolegend, width = 15, height = 10, units = "in", dpi = 600)
 
   # Save corresponding legend
-  svglite::svglite(paste0("plots/Microbial_Guilds/Family_Level/Legends/Fam_legend_", file_safe_g, ".svg"),
-                   width = 6, height = 6)
-  grid::grid.draw(legend_grob)
-  dev.off()
+  #svglite::svglite(paste0("plots/Microbial_Guilds/Family_Level/Legends/Fam_legend_", file_safe_g, ".svg"),
+                   #width = 6, height = 6)
+  #grid::grid.draw(legend_grob)
+  #dev.off()
 
-  tiff(paste0("plots/Microbial_Guilds/Family_Level/Legends/Fam_legend_", file_safe_g, ".tiff"),
-       width = 6, height = 6, units = "in", res = 600)
-  grid::grid.draw(legend_grob)
-  dev.off()
+  #tiff(paste0("plots/Microbial_Guilds/Family_Level/Legends/Fam_legend_", file_safe_g, ".tiff"),
+       #width = 6, height = 6, units = "in", res = 600)
+  #grid::grid.draw(legend_grob)
+  #dev.off()
 }
 
 

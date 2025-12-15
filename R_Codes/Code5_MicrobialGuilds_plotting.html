@@ -864,55 +864,35 @@ for (g in guilds) {
     )
 
  # Extract guild-specific legend
-  legend_grob &lt;- cowplot::get_legend(p_full)
+ # legend_grob &lt;- cowplot::get_legend(p_full)
 
   # Plot without legend
-  p_nolegend &lt;- p_full + theme(legend.position = &quot;none&quot;)
+ # p_nolegend &lt;- p_full + theme(legend.position = &quot;none&quot;)
 
   # Clean guild name for file-safe use
-  file_safe_g &lt;- gsub(&quot; &quot;, &quot;_&quot;, g)
+ # file_safe_g &lt;- gsub(&quot; &quot;, &quot;_&quot;, g)
 
   # Save main plot
-  ggsave(
-    filename = paste0(&quot;plots/Microbial_Guilds/Family_Level/Fam_guild_&quot;, file_safe_g, &quot;.svg&quot;),
-    plot = p_nolegend,
-    width = 11.78,
-    height = 10,
-    units = &quot;in&quot;,
-    dpi = 300
-  )
+  #ggsave(
+    #filename = paste0(&quot;plots/Microbial_Guilds/Family_Level/Fam_guild_&quot;, file_safe_g, &quot;.svg&quot;),
+    #plot = p_nolegend,
+   # width = 11.78,
+   # height = 10,
+   # units = &quot;in&quot;,
+   # dpi = 300
+ # )
 
-  ggsave(
-    filename = paste0(&quot;plots/Microbial_Guilds/Family_Level/Fam_guild_&quot;, file_safe_g, &quot;.tiff&quot;),
-    plot = p_nolegend,
-    width = 11.77,
-    height = 10,
-    units = &quot;in&quot;,
-    dpi = 600,
-    device = &quot;tiff&quot;
-  )
+  #ggsave(
+    #filename = paste0(&quot;plots/Microbial_Guilds/Family_Level/Fam_guild_&quot;, file_safe_g, &quot;.tiff&quot;),
+    #plot = p_nolegend,
+    #width = 11.77,
+    #height = 10,
+    #units = &quot;in&quot;,
+    #dpi = 600,
+    #device = &quot;tiff&quot;
+ # )
   
 }</code></pre>
-<pre><code>## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.</code></pre>
 <p>The code below is to plot the legends</p>
 <pre class="r"><code># Define threshold
 abundance_threshold &lt;- 0
@@ -956,49 +936,29 @@ for (g in guilds) {
     )
 
   # Extract guild-specific legend
-  legend_grob &lt;- cowplot::get_legend(p_full)
+ # legend_grob &lt;- cowplot::get_legend(p_full)
 
   # Remove legend from main plot
-  p_nolegend &lt;- p_full + theme(legend.position = &quot;none&quot;)
+ # p_nolegend &lt;- p_full + theme(legend.position = &quot;none&quot;)
 
   # Save plot
-  file_safe_g &lt;- gsub(&quot; &quot;, &quot;_&quot;, g)
+ # file_safe_g &lt;- gsub(&quot; &quot;, &quot;_&quot;, g)
   #ggsave(paste0(&quot;plots/Microbial_Guilds/Fam_guild_&quot;, file_safe_g, &quot;.svg&quot;),
          #plot = p_nolegend, width = 15, height = 10, units = &quot;in&quot;, dpi = 300)
   #ggsave(paste0(&quot;plots/Microbial_Guilds/Fam_guild_&quot;, file_safe_g, &quot;.tiff&quot;),
          #plot = p_nolegend, width = 15, height = 10, units = &quot;in&quot;, dpi = 600)
 
   # Save corresponding legend
-  svglite::svglite(paste0(&quot;plots/Microbial_Guilds/Family_Level/Legends/Fam_legend_&quot;, file_safe_g, &quot;.svg&quot;),
-                   width = 6, height = 6)
-  grid::grid.draw(legend_grob)
-  dev.off()
+  #svglite::svglite(paste0(&quot;plots/Microbial_Guilds/Family_Level/Legends/Fam_legend_&quot;, file_safe_g, &quot;.svg&quot;),
+                   #width = 6, height = 6)
+  #grid::grid.draw(legend_grob)
+  #dev.off()
 
-  tiff(paste0(&quot;plots/Microbial_Guilds/Family_Level/Legends/Fam_legend_&quot;, file_safe_g, &quot;.tiff&quot;),
-       width = 6, height = 6, units = &quot;in&quot;, res = 600)
-  grid::grid.draw(legend_grob)
-  dev.off()
+  #tiff(paste0(&quot;plots/Microbial_Guilds/Family_Level/Legends/Fam_legend_&quot;, file_safe_g, &quot;.tiff&quot;),
+       #width = 6, height = 6, units = &quot;in&quot;, res = 600)
+  #grid::grid.draw(legend_grob)
+  #dev.off()
 }</code></pre>
-<pre><code>## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.
-## Warning in get_plot_component(plot, &quot;guide-box&quot;): Multiple components found;
-## returning the first one. To return all, use `return_all = TRUE`.</code></pre>
 </div>
 </div>
 
