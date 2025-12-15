@@ -1,4 +1,4 @@
-# Geobio_Guanica_SciRep_Codes
+# Geobio_Guanica_Codes
 
 ## Repository Overview
 
