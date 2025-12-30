@@ -8,10 +8,11 @@ The scripts archived here were used for processing, normalization, analysis, and
 
 Raw sequencing data (FASTQ files) are not hosted in this repository and are instead publicly available through [Figshare](https://figshare.com/s/fd4e957a69e6de2036d4)
 
-### *Terminology Numenclature Note*
+### *Terminology and Nomenclature Note*
 
-In the codes provided here, the terms "PO", "JB" and "PS" correspond to the three lagoons (PO = Salinas Vernales, JB = Salinas Salinetas and PS = Laguna Providencia). In the manuscript, these are different (SV, SS and LP, respectively)
-
+In the code and data files provided in this repository, the abbreviations **PO**, **JB**, and **PS** are used to denote the three lagoon systems analyzed in this study (PO = Salinas Vernales, JB = Salinas Salinetas, PS = Laguna Providencia).
+In the associated manuscript, these systems are referred to using a different set of abbreviations (**SV**, **SS**, and **LP**, respectively).
+This difference reflects an update in nomenclature adopted during manuscript preparation and does not affect the underlying data structure or analyses.
 
 ## Terminal_Codes/
 
