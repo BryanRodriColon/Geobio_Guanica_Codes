@@ -8,9 +8,9 @@ The scripts archived here were used for processing, normalization, analysis, and
 
 Raw sequencing data (FASTQ files) are not hosted in this repository and are instead publicly available through [Figshare](https://figshare.com/s/fd4e957a69e6de2036d4)
 
-### Terminology Numenclature Note
+### **Terminology Numenclature Note**
 
-In the codes provided here, the term "PO", "JB" and "PS" correspond to the three lagoons (PO = Salinas Vernales, JB = Salinas Salinetas and PS = Laguna Providencia). In the manuscript, these are different (SV, SS and LP, repectively)
+In the codes provided here, the terms "PO", "JB" and "PS" correspond to the three lagoons (PO = Salinas Vernales, JB = Salinas Salinetas and PS = Laguna Providencia). In the manuscript, these are different (SV, SS and LP, respectively)
 
 
 ## Terminal_Codes/
