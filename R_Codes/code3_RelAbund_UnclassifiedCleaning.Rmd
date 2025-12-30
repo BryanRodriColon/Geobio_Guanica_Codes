@@ -9,9 +9,9 @@ output: html_document
 
 This script calculates and summarizes **relative abundance (%)** values across various metadata groupings for 16S rRNA amplicon sequencing data. It integrates **CSS-normalized `phyloseq` objects** and prepares melted relative abundance tables for:
 
-- All Prokaryotes  
-- Bacteria only  
-- Archaea only  
+- All Prokaryotes.  
+- Bacteria only.  
+- Archaea only.  
 
 Across three grouping variables:
 
