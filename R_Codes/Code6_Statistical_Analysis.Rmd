@@ -385,19 +385,19 @@ rm(Arch_merged_rel_melt, Bac_merged_rel_melt, Arch_Bac_merged_rel_melt)
 
 ```{r Filter by name}
 # Filter by lagoon and extract unique Genus
-Gen_PO <- Arch_Bac_merged_rel_melt_group %>%
+OTU_PO <- Arch_Bac_merged_rel_melt_group %>%
   filter(Sample_name == "POE1", Rel_Abund > 0, !is.na(OTU)) %>%
-  pull(Genus) %>%
+  pull(OTU) %>%
   unique()
 
-Gen_JB <- Arch_Bac_merged_rel_melt_group %>%
+OTU_JB <- Arch_Bac_merged_rel_melt_group %>%
   filter(Sample_name == "JB", Rel_Abund > 0, !is.na(OTU)) %>%
-  pull(Genus) %>%
+  pull(OTU) %>%
   unique()
 
-Gen_PS <- Arch_Bac_merged_rel_melt_group %>%
+OTU_PS <- Arch_Bac_merged_rel_melt_group %>%
   filter(Sample_name == "PS", Rel_Abund > 0, !is.na(OTU)) %>%
-  pull(Genus) %>%
+  pull(OTU) %>%
   unique()
 
 
@@ -407,7 +407,7 @@ Gen_PS <- Arch_Bac_merged_rel_melt_group %>%
 
 ```{r Plot}
 
-Genus_list <- list(PO = Gen_PO, JB = Gen_JB, PS = Gen_PS)
+Genus_list <- list(PO = OTU_PO, JB = OTU_JB, PS = OTU_PS)
 
 venn_plot <- ggvenn(Genus_list, 
        fill_color = c("blue", "red", "green"), 

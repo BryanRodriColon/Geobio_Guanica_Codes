@@ -10,7 +10,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_SciRep_Codes/R_Codes")
+setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_Codes/R_Codes")
 rm(list = ls())
 
 
@@ -64,19 +64,19 @@ rm(Arch_merged_rel_melt, Bac_merged_rel_melt, Arch_Bac_merged_rel_melt)
 
 ```{r Filter by name}
 # Filter by lagoon and extract unique Genus
-Gen_PO <- Arch_Bac_merged_rel_melt_group %>%
+OTU_PO <- Arch_Bac_merged_rel_melt_group %>%
   filter(Sample_name == "POE1", Rel_Abund > 0, !is.na(OTU)) %>%
-  pull(Genus) %>%
+  pull(OTU) %>%
   unique()
 
-Gen_JB <- Arch_Bac_merged_rel_melt_group %>%
+OTU_JB <- Arch_Bac_merged_rel_melt_group %>%
   filter(Sample_name == "JB", Rel_Abund > 0, !is.na(OTU)) %>%
-  pull(Genus) %>%
+  pull(OTU) %>%
   unique()
 
-Gen_PS <- Arch_Bac_merged_rel_melt_group %>%
+OTU_PS <- Arch_Bac_merged_rel_melt_group %>%
   filter(Sample_name == "PS", Rel_Abund > 0, !is.na(OTU)) %>%
-  pull(Genus) %>%
+  pull(OTU) %>%
   unique()
 
 
@@ -95,7 +95,7 @@ venn_plot <- ggvenn(Genus_list,
 
 
 ggsave(
-  filename = "plots/Statistics/venn_plot_PerSample.svg",
+  filename = "plots/Statistics/venn_plot_PerSample.tiff",
   plot = venn_plot,
   width = 6,
   height = 6
