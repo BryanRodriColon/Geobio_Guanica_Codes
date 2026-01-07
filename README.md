@@ -2,7 +2,7 @@
 
 ## Repository Overview
 
-This repository contains the bioinformatic and statistical codes used in support of the manuscript entitled **“Documenting the Occurrence of Microbial Carbonate Deposits in Southwestern Puerto Rico”**, by **Bryan J. Rodríguez-Colón et al.** The manuscript has been submitted to *Scientific Reports* and is also available as a preprint on **EarthArXiv** under the same title.
+This repository contains the bioinformatic and statistical codes used in support of the manuscript entitled **“Documenting the Occurrence of Microbial Carbonate Deposits in Puerto Rico”**, by **Bryan J. Rodríguez-Colón et al.** The manuscript has been submitted to *Scientific Reports* and is also available as a preprint on **Research Square** under the same title.
 
 The scripts archived here were used for processing, normalization, analysis, and visualization of 16S rRNA amplicon sequencing data, as well as for generating the figures and summary tables reported in the manuscript. This repository is intended to ensure transparency and reproducibility of the microbial ecology component of the study.
 
@@ -11,7 +11,7 @@ Raw sequencing data (FASTQ files) are not hosted in this repository and are inst
 ### *Terminology and Nomenclature Note*
 
 In the code and data files provided in this repository, the abbreviations **PO**, **JB**, and **PS** are used to denote the three lagoon systems analyzed in this study (PO = Salinas Vernales, JB = Salinas Salinetas, PS = Laguna Providencia).
-In the associated manuscript, these systems are referred to using a different set of abbreviations (**SV**, **SS**, and **LP**, respectively).
+In the associated manuscript, these systems are referred to using a different set of abbreviations (**SV-**, **SS-**, and **LP-**, respectively).
 This difference reflects an update in nomenclature adopted during manuscript preparation and does not affect the underlying data structure or analyses.
 
 ## Terminal_Codes/
