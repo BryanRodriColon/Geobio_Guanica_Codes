@@ -380,7 +380,7 @@ sparse amplicon counts (Paulson et al., 2013).</p>
 knitr::opts_chunk$set(echo = TRUE)
 
 #Working Directory
-setwd(&quot;/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_SciRep_Codes/R_Codes&quot;)
+setwd(&quot;/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_Codes/R_Codes&quot;)
 
 #Clean Environment
 rm(list = ls())</code></pre>
@@ -452,6 +452,28 @@ mr_exp &lt;- mr_exp[keep, ]
 cat(&quot;Kept features (Bacteria/Archaea filter):&quot;, sum(keep), &quot;of&quot;, length(keep), &quot;\n&quot;)</code></pre>
 <pre><code>## Kept features (Bacteria/Archaea filter): 6389 of 6389</code></pre>
 </div>
+</div>
+<div id="remove-chloroplast-and-mitochondria-sequences" class="section level2">
+<h2>Remove chloroplast and mitochondria sequences</h2>
+<pre class="r"><code># Remove chloroplast and mitochondria sequences
+# These may appear within bacterial phyla (e.g., Cyanobacteriota or Pseudomonadota)
+# so we remove them explicitly based on taxonomy labels.
+
+fdat &lt;- fData(mr_exp)
+
+organelle_hits &lt;- apply(
+  fdat,
+  1,
+  function(x) any(grepl(&quot;chloroplast|mitochondria&quot;, x, ignore.case = TRUE), na.rm = TRUE)
+)
+
+cat(&quot;Organelle features detected:&quot;, sum(organelle_hits), &quot;\n&quot;)</code></pre>
+<pre><code>## Organelle features detected: 10</code></pre>
+<pre class="r"><code># Remove those features
+mr_exp &lt;- mr_exp[!organelle_hits, ]
+
+cat(&quot;Features remaining after organelle removal:&quot;, nrow(fData(mr_exp)), &quot;\n&quot;)</code></pre>
+<pre><code>## Features remaining after organelle removal: 6379</code></pre>
 </div>
 <div id="identify-and-temporarily-drop-zero-count-samples." class="section level2">
 <h2>Identify and temporarily drop zero-count samples.</h2>
@@ -536,7 +558,7 @@ if(length(empty_samples) &gt; 0) {
   full_norm_counts &lt;- norm_counts
 }
 cat(&quot;Normalized count matrix dimensions:&quot;, dim(full_norm_counts), &quot;\n&quot;)</code></pre>
-<pre><code>## Normalized count matrix dimensions: 6389 27</code></pre>
+<pre><code>## Normalized count matrix dimensions: 6379 27</code></pre>
 </div>
 <div id="save-normalized-biom" class="section level2">
 <h2>Save normalized biom</h2>

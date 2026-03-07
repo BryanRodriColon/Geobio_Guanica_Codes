@@ -382,7 +382,7 @@ conventions.</li>
 <pre class="r"><code># Prepare script
 knitr::opts_chunk$set(echo = TRUE)
 
-setwd(&quot;/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_SciRep_Codes/R_Codes&quot;)
+setwd(&quot;/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_Codes/R_Codes&quot;)
 
 rm(list = ls())</code></pre>
 <div id="load-libraries" class="section level1">
@@ -538,10 +538,10 @@ Arch_norm</code></pre>
 Bac_norm &lt;- subset_taxa(Arch_Bac_norm, Domain == &quot;Bacteria&quot;)
 Bac_norm</code></pre>
 <pre><code>## phyloseq-class experiment-level object
-## otu_table()   OTU Table:         [ 4761 taxa and 26 samples ]
+## otu_table()   OTU Table:         [ 4751 taxa and 26 samples ]
 ## sample_data() Sample Data:       [ 26 samples by 12 sample variables ]
-## tax_table()   Taxonomy Table:    [ 4761 taxa by 7 taxonomic ranks ]
-## phy_tree()    Phylogenetic Tree: [ 4761 tips and 4758 internal nodes ]</code></pre>
+## tax_table()   Taxonomy Table:    [ 4751 taxa by 7 taxonomic ranks ]
+## phy_tree()    Phylogenetic Tree: [ 4751 tips and 4748 internal nodes ]</code></pre>
 </div>
 </div>
 </div>
@@ -559,6 +559,24 @@ Arch_Bac</code></pre>
 ## sample_data() Sample Data:       [ 26 samples by 12 sample variables ]
 ## tax_table()   Taxonomy Table:    [ 6399 taxa by 7 taxonomic ranks ]
 ## phy_tree()    Phylogenetic Tree: [ 6399 tips and 6394 internal nodes ]</code></pre>
+<pre class="r"><code># Remove chloroplast and mitochondria from the raw (non-normalized) phyloseq
+# This is needed because Arch_Bac is used for alpha diversity and other
+# downstream analyses based on the raw BIOM.
+
+tt_raw &lt;- as.data.frame(tax_table(Arch_Bac), stringsAsFactors = FALSE)
+
+organelle_hits_raw &lt;- apply(
+  tt_raw,
+  1,
+  function(x) any(grepl(&quot;chloroplast|mitochondria&quot;, x, ignore.case = TRUE), na.rm = TRUE)
+)
+
+cat(&quot;Raw BIOM organelle taxa detected:&quot;, sum(organelle_hits_raw), &quot;\n&quot;)</code></pre>
+<pre><code>## Raw BIOM organelle taxa detected: 10</code></pre>
+<pre class="r"><code>Arch_Bac &lt;- prune_taxa(!organelle_hits_raw, Arch_Bac)
+
+cat(&quot;Raw BIOM taxa remaining after organelle removal:&quot;, ntaxa(Arch_Bac), &quot;\n&quot;)</code></pre>
+<pre><code>## Raw BIOM taxa remaining after organelle removal: 6389</code></pre>
 <pre class="r"><code>#Subset archaea
 Arch &lt;- subset_taxa(Arch_Bac, Domain == &quot;Archaea&quot;)
 Arch</code></pre>
@@ -571,10 +589,10 @@ Arch</code></pre>
 Bac &lt;- subset_taxa(Arch_Bac, Domain == &quot;Bacteria&quot;)
 Bac</code></pre>
 <pre><code>## phyloseq-class experiment-level object
-## otu_table()   OTU Table:         [ 4761 taxa and 26 samples ]
+## otu_table()   OTU Table:         [ 4751 taxa and 26 samples ]
 ## sample_data() Sample Data:       [ 26 samples by 12 sample variables ]
-## tax_table()   Taxonomy Table:    [ 4761 taxa by 7 taxonomic ranks ]
-## phy_tree()    Phylogenetic Tree: [ 4761 tips and 4758 internal nodes ]</code></pre>
+## tax_table()   Taxonomy Table:    [ 4751 taxa by 7 taxonomic ranks ]
+## phy_tree()    Phylogenetic Tree: [ 4751 tips and 4748 internal nodes ]</code></pre>
 </div>
 <div id="saving-rdatafiles" class="section level1">
 <h1>Saving RDatafiles</h1>

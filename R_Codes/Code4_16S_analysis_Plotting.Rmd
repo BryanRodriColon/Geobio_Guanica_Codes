@@ -70,7 +70,7 @@ Each table includes `Sample_Layer`, taxonomic ranks (`Domain`, `Phylum`, `Class`
 # Prepare script
 knitr::opts_chunk$set(echo = TRUE)
 
-setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_SciRep_Codes/R_Codes")
+setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_Codes/R_Codes")
 rm(list = ls())
 
 
@@ -552,19 +552,19 @@ plotty_ALL_Phylum_interactive
 
 ```{r Save Prokaryote Phylum Plot, echo=T, include=T}
 
-# # Save as an interactive HTML file
-# saveWidget(plotty_ALL_Phylum_interactive, "plots/Phylum_Level/ALL_Phylum_summary_plot.html", selfcontained = T, libdir = NULL)
-# print("Interactive HTML file saved as ALL_Phylum_summary_plot.html")
-# 
-# 
-# # Save as SVG (for Illustrator editing)
-# ggsave(filename = "plots/Phylum_Level/ALL_Phylum_summary_plot.svg", plot = Plot_ALL_Phylum, device = "svg", width = 13, height = 5, dpi = 300)
-# print("SVG file saved as ALL_Phylum_summary_plot.svg")
-# 
-# 
-# # Save as TIFF (high-resolution for publication)
-# ggsave(filename = "plots/Phylum_Level/ALL_Phylum_summary_plot.tiff", plot = Plot_ALL_Phylum, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
-# print("TIFF file saved as ALL_Phylum_summary_plot.tiff")
+# Save as an interactive HTML file
+saveWidget(plotty_ALL_Phylum_interactive, "plots/Phylum_Level/ALL_Phylum_summary_plot.html", selfcontained = T, libdir = NULL)
+print("Interactive HTML file saved as ALL_Phylum_summary_plot.html")
+
+
+# Save as SVG (for Illustrator editing)
+ggsave(filename = "plots/Phylum_Level/ALL_Phylum_summary_plot.svg", plot = Plot_ALL_Phylum, device = "svg", width = 13, height = 5, dpi = 300)
+print("SVG file saved as ALL_Phylum_summary_plot.svg")
+
+
+# Save as TIFF (high-resolution for publication)
+ggsave(filename = "plots/Phylum_Level/ALL_Phylum_summary_plot.tiff", plot = Plot_ALL_Phylum, device = "tiff", width = 13, height = 5, dpi = 600, compression = "lzw")
+print("TIFF file saved as ALL_Phylum_summary_plot.tiff")
 
 ```
 

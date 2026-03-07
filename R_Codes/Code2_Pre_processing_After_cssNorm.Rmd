@@ -25,7 +25,7 @@ This R Markdown script is used to turn the biom, metadata and phylogenetic tree 
 # Prepare script
 knitr::opts_chunk$set(echo = TRUE)
 
-setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_SciRep_Codes/R_Codes")
+setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_Codes/R_Codes")
 
 rm(list = ls())
 
@@ -195,6 +195,26 @@ Arch_Bac <- merge_phyloseq(Arch_Bac_biom,
                                        Arch_Bac_map,
                                        Arch_Bac_tree)
 Arch_Bac
+
+
+# Remove chloroplast and mitochondria from the raw (non-normalized) phyloseq
+# This is needed because Arch_Bac is used for alpha diversity and other
+# downstream analyses based on the raw BIOM.
+
+tt_raw <- as.data.frame(tax_table(Arch_Bac), stringsAsFactors = FALSE)
+
+organelle_hits_raw <- apply(
+  tt_raw,
+  1,
+  function(x) any(grepl("chloroplast|mitochondria", x, ignore.case = TRUE), na.rm = TRUE)
+)
+
+cat("Raw BIOM organelle taxa detected:", sum(organelle_hits_raw), "\n")
+
+Arch_Bac <- prune_taxa(!organelle_hits_raw, Arch_Bac)
+
+cat("Raw BIOM taxa remaining after organelle removal:", ntaxa(Arch_Bac), "\n")
+
 
 #Subset archaea
 Arch <- subset_taxa(Arch_Bac, Domain == "Archaea")

@@ -27,7 +27,7 @@ CSS provides a principled alternative to rarefaction for normalizing sparse ampl
 knitr::opts_chunk$set(echo = TRUE)
 
 #Working Directory
-setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_SciRep_Codes/R_Codes")
+setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_Codes/R_Codes")
 
 #Clean Environment
 rm(list = ls())
@@ -109,6 +109,31 @@ if (!all(is.na(dom_vals))) {
 mr_exp <- mr_exp[keep, ]
 cat("Kept features (Bacteria/Archaea filter):", sum(keep), "of", length(keep), "\n")
 
+
+```
+
+
+## Remove chloroplast and mitochondria sequences
+
+```{r}
+# Remove chloroplast and mitochondria sequences
+# These may appear within bacterial phyla (e.g., Cyanobacteriota or Pseudomonadota)
+# so we remove them explicitly based on taxonomy labels.
+
+fdat <- fData(mr_exp)
+
+organelle_hits <- apply(
+  fdat,
+  1,
+  function(x) any(grepl("chloroplast|mitochondria", x, ignore.case = TRUE), na.rm = TRUE)
+)
+
+cat("Organelle features detected:", sum(organelle_hits), "\n")
+
+# Remove those features
+mr_exp <- mr_exp[!organelle_hits, ]
+
+cat("Features remaining after organelle removal:", nrow(fData(mr_exp)), "\n")
 
 ```
 
