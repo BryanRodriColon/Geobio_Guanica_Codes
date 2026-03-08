@@ -21,7 +21,7 @@ This document also includes a Venn diagram workflow that compares shared vs. uni
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_SciRep_Codes/R_Codes")
+setwd("/Users/bryanrodriguez/Library/CloudStorage/OneDrive-UniversityofKansas/Bryan-MS_PhD/PHD-PROJECT/PuertoRico/CHAPTER2/16S/Processing/Geobio_Guanica_Codes/R_Codes")
 
 rm(list = ls())
 
